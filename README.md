@@ -105,7 +105,8 @@ npm test -- --watch=false
 | 4 | Inventario (lotes, vencimientos, ajustes) y compras | ✅ |
 | 5 | Ventas con pagos combinados y anulación | ✅ |
 | 6 | Caja (gastos) y estadísticas | ✅ |
-| 7–8 | Frontend | ⏳ |
+| 7 | Frontend base (ingreso, menú, componentes, modo oscuro) | ✅ |
+| 8 | Pantallas de cada módulo | ⏳ |
 | 9 | PWA móvil | ⏳ |
 | 10 | Escritorio offline | ⏳ |
 | 11 | Despliegue | ⏳ |

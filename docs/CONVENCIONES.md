@@ -61,7 +61,22 @@ internal/<modulo>/
 - Archivos: `*.page.ts` (pantallas de ruta), `*.component.ts` (piezas), `*.service.ts`.
 - Estilos solo con Tailwind y los tokens de `styles.css` (`brand-*`, `ink-*`, `ok`, `warn`, `danger`).
 - Accesibilidad WCAG AA: contraste, foco visible, etiquetas en formularios.
-- Tablas siempre paginadas, máximo 10 filas.
+- Tablas siempre paginadas, máximo 10 filas: usar `<app-tabla>` (incluye paginador, carga y estado vacío).
+
+### Piezas compartidas del frontend
+| Pieza | Para qué |
+|---|---|
+| `core/auth` | `AuthService` (sesión), `authInterceptor` (token y cierre por 401), guards de ruta |
+| `core/api` | `ApiError` (errores de la API ya interpretados), `Pagina<T>`, `parametros()` |
+| `core/ui` | `ToastService` (avisos), `ConfirmacionService` (`await preguntar(...)`), `TemaService` (claro/oscuro) |
+| `core/red` | `ConexionService` (en línea / sin conexión) |
+| `shared/formato` | Pipes `dinero` y `fecha`; `interpretarDinero()` acepta "59.200,50" y devuelve "59200.50" |
+| `shared/ui` | `app-tabla`, `app-paginador`, `app-modal`, `app-campo`, `app-input-dinero`, `app-encabezado` |
+| `styles.css` | Clases base: `card`, `btn-primario`, `btn-secundario`, `btn-fantasma`, `btn-peligro`, `btn-icono`, `input`, `etiqueta`, `badge-*`, `tabla`, `titulo-pagina` |
+
+- Montos: la API usa texto `"59200.50"`; para sumar en pantalla convertir a centavos (`aCentavos`) y nunca usar `number` con decimales.
+- Fechas y horas siempre en hora de Argentina y formato de 24 h (`fecha` pipe).
+- Íconos: `lucide-angular` (`<lucide-icon [img]="Icono" />`), empaquetados en la app (funciona sin internet).
 
 ## Git
 - Rama `main` estable; una rama por fase o funcionalidad (`fase-1-esquema`, …).
