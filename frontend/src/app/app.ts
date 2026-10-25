@@ -1,5 +1,7 @@
 import { ChangeDetectionStrategy, Component, inject } from '@angular/core';
 import { RouterOutlet } from '@angular/router';
+import { ActualizacionService } from './core/pwa/actualizacion.service';
+import { InstalacionService } from './core/pwa/instalacion.service';
 import { TemaService } from './core/ui/tema.service';
 import { AvisosComponent } from './shared/ui/avisos.component';
 
@@ -12,5 +14,7 @@ import { AvisosComponent } from './shared/ui/avisos.component';
 export class App {
   constructor() {
     inject(TemaService); // aplica el modo claro/oscuro desde el inicio
+    inject(InstalacionService); // escucha desde el arranque si la app se puede instalar
+    inject(ActualizacionService).iniciar();
   }
 }

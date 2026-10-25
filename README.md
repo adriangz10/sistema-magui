@@ -94,6 +94,22 @@ Tests:
 npm test -- --watch=false
 ```
 
+### 4. Versión web e instalable (como en producción)
+
+Compilar el frontend (desde `frontend/`):
+
+```bash
+npm run build
+```
+
+Con `FRONTEND_DIR=../frontend/dist/frontend/browser` en `backend/.env`, la API sirve también la app en
+http://localhost:8080. El service worker (app instalable y apertura sin señal) solo funciona en esta versión
+compilada, no con `npm start`.
+
+**Instalar en el celular:** abrir la dirección del sistema en Chrome (Android) y tocar *Instalar app*, o desde
+*Configuración → App en este dispositivo*. En iPhone: Safari → *Compartir* → *Agregar a inicio*.
+Requiere HTTPS en producción (Fase 11).
+
 ## Estado
 
 | Fase | Descripción | Estado |
@@ -107,6 +123,6 @@ npm test -- --watch=false
 | 6 | Caja (gastos) y estadísticas | ✅ |
 | 7 | Frontend base (ingreso, menú, componentes, modo oscuro) | ✅ |
 | 8 | Pantallas: vender, ventas, productos, categorías, inventario, compras, caja, inicio, estadísticas, configuración | ✅ |
-| 9 | PWA móvil | ⏳ |
+| 9 | App instalable en el celular (PWA) | ✅ |
 | 10 | Escritorio offline | ⏳ |
 | 11 | Despliegue | ⏳ |

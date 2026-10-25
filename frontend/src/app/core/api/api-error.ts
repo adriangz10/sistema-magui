@@ -23,7 +23,7 @@ export class ApiError extends Error {
       return err;
     }
     if (err instanceof HttpErrorResponse) {
-      if (err.status === 0) {
+      if (err.status === 0 || err.status === 502 || err.status === 503 || err.status === 504) {
         return new ApiError(0, 'sin_conexion', 'No se pudo conectar con el servidor. Revisá la conexión.');
       }
       const cuerpo = err.error as { error?: { code?: string; message?: string; fields?: Record<string, string> } } | null;

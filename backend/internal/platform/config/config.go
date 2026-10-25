@@ -15,6 +15,7 @@ type Config struct {
 	Env             string // "dev" o "prod"
 	HTTPAddr        string
 	AllowedOrigins  []string
+	FrontendDir     string // carpeta del frontend compilado; vacío = la API no sirve la app web
 	ShutdownTimeout time.Duration
 	DB              DBConfig
 	Auth            AuthConfig
@@ -54,6 +55,7 @@ func Load() (Config, error) {
 		Env:             get("APP_ENV", "dev"),
 		HTTPAddr:        get("HTTP_ADDR", ":8080"),
 		AllowedOrigins:  splitList(get("ALLOWED_ORIGINS", "http://localhost:4200")),
+		FrontendDir:     get("FRONTEND_DIR", ""),
 		ShutdownTimeout: 10 * time.Second,
 		DB: DBConfig{
 			Host:     get("DB_HOST", "localhost"),

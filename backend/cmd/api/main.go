@@ -4,6 +4,7 @@ package main
 import (
 	"context"
 	"fmt"
+	"net/http"
 	"os"
 	"os/signal"
 	"syscall"
@@ -18,6 +19,7 @@ import (
 	"magui/internal/platform/db"
 	"magui/internal/platform/httpserver"
 	"magui/internal/platform/logger"
+	"magui/internal/platform/web"
 	"magui/internal/ventas"
 )
 
@@ -67,8 +69,18 @@ func run() error {
 	cat := catalogo.NuevoModuloMySQL(conn, log)
 	inv := inventario.NuevoModuloMySQL(conn, cat.Servicio, log)
 
+	var frontend http.Handler
+	if cfg.FrontendDir != "" {
+		if info, err := os.Stat(cfg.FrontendDir); err != nil || !info.IsDir() {
+			return fmt.Errorf("FRONTEND_DIR %q no es una carpeta: compilá el frontend con npm run build", cfg.FrontendDir)
+		}
+		frontend = web.SPA(os.DirFS(cfg.FrontendDir))
+		log.Info("sirviendo la app web", "carpeta", cfg.FrontendDir)
+	}
+
 	router := httpserver.NewRouter(log, httpserver.Options{
 		AllowedOrigins: cfg.AllowedOrigins,
+		Frontend:       frontend,
 		Version:        version,
 		Checks:         map[string]httpserver.Check{"db": conn.PingContext},
 		Autenticacion:  acceso.Handler.RequerirSesion,
@@ -82,5 +94,5 @@ func run() error {
 		estadisticas.NuevoModuloMySQL(conn, log).Handler,
 	)
 
-	return httpserver.Run(ctx, log, cfg.HTTPAddr, router, cfg.ShutdownTimeout)
+	return httpserver.Run(ctx, log, cfg.HTTPAddr, web.Seguridad(router), cfg.ShutdownTimeout)
 }

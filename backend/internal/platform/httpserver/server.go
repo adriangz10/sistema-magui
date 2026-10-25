@@ -36,6 +36,8 @@ type Options struct {
 	Checks         map[string]Check
 	// Autenticacion protege las rutas de los módulos. nil = sin protección (solo tests/escritorio).
 	Autenticacion func(http.Handler) http.Handler
+	// Frontend sirve la app web en todo lo que no es /api (opcional).
+	Frontend http.Handler
 }
 
 // NewRouter crea el router con middlewares comunes y monta todo bajo /api.
@@ -73,6 +75,9 @@ func NewRouter(log *slog.Logger, opt Options, modules ...Module) http.Handler {
 			})
 		})
 	})
+	if opt.Frontend != nil {
+		r.Handle("/*", opt.Frontend)
+	}
 	return r
 }
 

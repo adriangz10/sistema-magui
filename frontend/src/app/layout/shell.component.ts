@@ -66,6 +66,11 @@ import { MENU } from './navegacion';
           </button>
         </header>
 
+        @if (!conexion.enLinea()) {
+          <div class="border-b border-amber-200 bg-amber-50 px-4 py-2 text-center text-sm text-warn lg:px-8 dark:border-amber-900 dark:bg-amber-950 dark:text-amber-300" role="status">
+            Sin conexión: podés consultar productos y precios, pero para vender o registrar cambios hace falta internet.
+          </div>
+        }
         <main id="contenido" class="mx-auto w-full max-w-7xl flex-1 px-4 pt-6 pb-24 lg:px-8 lg:pb-10" tabindex="-1">
           <router-outlet />
         </main>

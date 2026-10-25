@@ -90,3 +90,24 @@ describe('ApiError', () => {
     expect(e.detalle).toBe('Revisá los datos: Obligatorio');
   });
 });
+
+describe('conexión', () => {
+  it('pasa a "sin conexión" si el servidor no responde y vuelve al responder', async () => {
+    const { ConexionService } = await import('../red/conexion.service');
+    const { conexionInterceptor } = await import('../red/conexion.interceptor');
+    TestBed.resetTestingModule();
+    TestBed.configureTestingModule({ providers: [provideHttpClient(withInterceptors([conexionInterceptor])), provideHttpClientTesting()] });
+    const http = TestBed.inject(HttpTestingController);
+    const conexion = TestBed.inject(ConexionService);
+    const cliente = TestBed.inject(HttpClient);
+
+    cliente.get('/api/ventas').subscribe({ error: () => undefined });
+    http.expectOne('/api/ventas').flush(null, { status: 504, statusText: 'Gateway Timeout' });
+    expect(conexion.enLinea()).toBe(false);
+    expect(ApiError.desde(new (await import('@angular/common/http')).HttpErrorResponse({ status: 504 })).codigo).toBe('sin_conexion');
+
+    cliente.get('/api/ventas').subscribe();
+    http.expectOne('/api/ventas').flush({ items: [] });
+    expect(conexion.enLinea()).toBe(true);
+  });
+});

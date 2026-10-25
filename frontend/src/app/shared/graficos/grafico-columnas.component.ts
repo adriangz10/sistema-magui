@@ -27,6 +27,11 @@ const MARGEN = { arriba: 22, derecha: 8, abajo: 28, izquierda: 52 };
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: { class: 'block' },
   template: `
+    @if (sinDatos()) {
+      <p class="flex items-center justify-center rounded-xl bg-ink-50 text-sm text-ink-500 dark:bg-ink-800/50" [style.height.px]="altoTotal">
+        {{ mensajeVacio() }}
+      </p>
+    } @else {
     <div class="relative" [style.height.px]="altoTotal">
       @if (ancho() > 0) {
         <svg [attr.width]="ancho()" [attr.height]="altoTotal" role="img" [attr.aria-label]="titulo() + '. Detalle en la tabla de abajo.'"
@@ -68,7 +73,8 @@ const MARGEN = { arriba: 22, derecha: 8, abajo: 28, izquierda: 52 };
         }
       }
     </div>
-    <details class="mt-2 text-sm">
+    }
+    <details class="mt-2 text-sm" [class.hidden]="sinDatos()">
       <summary class="cursor-pointer text-ink-500 hover:text-ink-700 dark:hover:text-ink-300">Ver como tabla</summary>
       <div class="mt-2 max-h-64 overflow-y-auto">
         <table class="tabla">
@@ -90,6 +96,7 @@ export class GraficoColumnasComponent {
   readonly etiquetaX = input('Período');
   /** Prefijo del eje Y (ej. "$"). */
   readonly prefijo = input('');
+  readonly mensajeVacio = input('Todavía no hay ventas en este período');
 
   protected readonly ALTO_PLOT = ALTO_PLOT;
   protected readonly altoTotal = ALTO_PLOT + MARGEN.arriba + MARGEN.abajo;
@@ -98,6 +105,7 @@ export class GraficoColumnasComponent {
   protected readonly ancho = signal(0);
   protected readonly activa = signal(-1);
 
+  protected readonly sinDatos = computed(() => this.datos().every((d) => d.valor <= 0));
   protected readonly marcas = computed(() => marcasEje(Math.max(0, ...this.datos().map((d) => d.valor))));
   private readonly maximoEje = computed(() => this.marcas()[this.marcas().length - 1] || 1);
   protected readonly banda = computed(() => (this.ancho() - MARGEN.izquierda - MARGEN.derecha) / Math.max(1, this.datos().length));

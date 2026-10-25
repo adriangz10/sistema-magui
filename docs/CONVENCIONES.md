@@ -79,6 +79,13 @@ internal/<modulo>/
 - Montos: la API usa texto `"59200.50"`; para sumar en pantalla convertir a centavos (`aCentavos`) y nunca usar `number` con decimales.
 - Fechas y horas siempre en hora de Argentina y formato de 24 h (`fecha` pipe).
 - Gráficos: una sola serie con el rosa de marca validado para contraste (`brand-600` en claro, `brand-500` en oscuro), sin leyenda, eje Y redondeado, máximo rotulado, tooltip con mouse y teclado y siempre "Ver como tabla".
+- PWA: `ngsw-config.json` guarda la app completa y, sin conexión, responde desde la copia solo las consultas
+  de catálogo (productos, categorías, empresas). Si se agrega otra consulta a esa lista, sumarla también a
+  `DESDE_COPIA` en `core/red/conexion.interceptor.ts` (para que no cuente como "hay conexión").
+- Conexión: `ConexionService` combina el aviso del navegador, el resultado de cada llamada a la API y una
+  prueba a `/api/health` al abrir y cada 15 s mientras no hay señal.
+- Política de seguridad (CSP) estricta: sin scripts en línea. Por eso `inlineCritical` está desactivado en
+  `angular.json`; no agregar `onclick=` ni `<script>` dentro del HTML.
 - Íconos: `lucide-angular` (`<lucide-icon [img]="Icono" />`), empaquetados en la app (funciona sin internet).
 
 ## Git

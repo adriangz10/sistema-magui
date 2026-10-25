@@ -6,6 +6,7 @@ import { ApiError } from '../../core/api/api-error';
 import { InventarioApi } from '../../core/api/inventario.api';
 import { AuthService } from '../../core/auth/auth.service';
 import { API_BASE_URL } from '../../core/config/api.config';
+import { InstalacionService } from '../../core/pwa/instalacion.service';
 import { TemaService } from '../../core/ui/tema.service';
 import { ToastService } from '../../core/ui/toast.service';
 import { CampoComponent } from '../../shared/ui/campo.component';
@@ -41,6 +42,20 @@ import { EncabezadoComponent } from '../../shared/ui/encabezado.component';
       </section>
 
       <div class="space-y-6">
+        <section class="card p-5" aria-labelledby="titulo-instalar">
+          <h2 id="titulo-instalar" class="font-semibold">App en este dispositivo</h2>
+          @if (instalacion.instalada()) {
+            <p class="mt-1 text-sm text-ok dark:text-green-400">✓ Ya la estás usando como app instalada.</p>
+          } @else if (instalacion.puedeInstalar()) {
+            <p class="mt-1 mb-3 text-sm text-ink-500">Instalala para abrirla desde un ícono, en pantalla completa, como cualquier app.</p>
+            <button type="button" class="btn-primario" (click)="instalar()">Instalar Magui</button>
+          } @else if (instalacion.esIOS) {
+            <p class="mt-1 text-sm text-ink-500">En iPhone o iPad: tocá <strong>Compartir</strong> (el cuadrado con la flecha) y elegí <strong>Agregar a inicio</strong>.</p>
+          } @else {
+            <p class="mt-1 text-sm text-ink-500">Desde el celular, abrí el menú del navegador y elegí <strong>Instalar app</strong> o <strong>Agregar a la pantalla de inicio</strong>.</p>
+          }
+        </section>
+
         <section class="card p-5" aria-labelledby="titulo-venc">
           <h2 id="titulo-venc" class="font-semibold">Aviso de vencimientos</h2>
           <p class="mb-4 text-sm text-ink-500">Con cuántos días de anticipación se marca un producto como "por vencer".</p>
@@ -82,6 +97,7 @@ export class ConfiguracionPage {
   private readonly http = inject(HttpClient);
   private readonly base = inject(API_BASE_URL);
   protected readonly tema = inject(TemaService);
+  protected readonly instalacion = inject(InstalacionService);
 
   protected readonly temas = [{ id: 'claro' as const, etiqueta: 'Claro' }, { id: 'oscuro' as const, etiqueta: 'Oscuro' }];
   protected actual = '';
@@ -136,6 +152,12 @@ export class ConfiguracionPage {
       }
     } finally {
       this.guardandoClave.set(false);
+    }
+  }
+
+  protected async instalar(): Promise<void> {
+    if (await this.instalacion.instalar()) {
+      this.toast.exito('¡Listo! Magui quedó instalada en este dispositivo.');
     }
   }
 
