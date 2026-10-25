@@ -71,12 +71,20 @@ type Asignacion struct {
 	Costo    *dinero.Dinero
 }
 
-// AsignarFEFO reparte una salida entre lotes: primero los que vencen antes
-// (los lotes sin fecha van al final; a igual fecha, el más antiguo).
+// AsignarFEFO reparte una salida entre lotes: primero los vigentes que vencen antes,
+// después los sin fecha y por último los ya vencidos (así lo vencido sigue en las alertas
+// hasta que se descarte con un ajuste). A igual fecha, el lote más antiguo.
 // Lo que no alcanza a cubrirse se devuelve en una asignación sin lote.
-func AsignarFEFO(lotes []LoteStock, cantidad int) []Asignacion {
+func AsignarFEFO(lotes []LoteStock, cantidad int, hoy fecha.Fecha) []Asignacion {
 	disponibles := slices.Clone(lotes)
+	vencido := func(l LoteStock) bool { return l.Vencimiento != nil && l.Vencimiento.Antes(hoy) }
 	slices.SortStableFunc(disponibles, func(a, b LoteStock) int {
+		if va, vb := vencido(a), vencido(b); va != vb {
+			if va {
+				return 1
+			}
+			return -1
+		}
 		switch {
 		case a.Vencimiento == nil && b.Vencimiento != nil:
 			return 1

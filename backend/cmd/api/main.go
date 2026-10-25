@@ -16,6 +16,7 @@ import (
 	"magui/internal/platform/db"
 	"magui/internal/platform/httpserver"
 	"magui/internal/platform/logger"
+	"magui/internal/ventas"
 )
 
 // version se sobrescribe al compilar: go build -ldflags "-X main.version=1.0.0"
@@ -74,7 +75,8 @@ func run() error {
 		cat.Handler,
 		inv.Handler,
 		compras.NuevoModuloMySQL(conn, cat.Servicio, inv.Servicio, log).Handler,
-		// Ventas, caja y estadísticas se agregan en las próximas fases.
+		ventas.NuevoModuloMySQL(conn, cat.Servicio, inv.Servicio, log).Handler,
+		// Caja y estadísticas se agregan en la Fase 6.
 	)
 
 	return httpserver.Run(ctx, log, cfg.HTTPAddr, router, cfg.ShutdownTimeout)

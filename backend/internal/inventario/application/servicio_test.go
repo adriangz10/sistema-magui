@@ -45,6 +45,15 @@ func (r *repoMem) RegistrarMovimientos(_ context.Context, m []domain.Movimiento)
 	r.movs = append(r.movs, m...)
 	return nil
 }
+func (r *repoMem) MovimientosPorReferencia(_ context.Context, ref string, tipo domain.TipoMovimiento) ([]domain.Movimiento, error) {
+	var out []domain.Movimiento
+	for _, m := range r.movs {
+		if m.ReferenciaID != nil && *m.ReferenciaID == ref && m.Tipo == tipo {
+			out = append(out, m)
+		}
+	}
+	return out, nil
+}
 func (r *repoMem) LotesConStock(_ context.Context, p string) ([]domain.LoteStock, error) {
 	var out []domain.LoteStock
 	for _, l := range r.lotes {
@@ -253,5 +262,32 @@ func TestConfiguracionDiasAlerta(t *testing.T) {
 	a, _ := s.Alertas(ctx)
 	if a.DiasAlerta != 30 || a.Vencidos != 1 {
 		t.Errorf("alertas = %+v", a)
+	}
+}
+
+func TestRevertirSalidas(t *testing.T) {
+	s, repo := entorno()
+	_, _ = s.RegistrarIngreso(ctx, Ingreso{ProductoID: "kaiak", Cantidad: 2, Vencimiento: f("2026-12-01"), Tipo: domain.MovCompra})
+	_, _ = s.RegistrarIngreso(ctx, Ingreso{ProductoID: "kaiak", Cantidad: 2, Vencimiento: f("2027-12-01"), Tipo: domain.MovCompra})
+	ref := "venta-1"
+	if _, err := s.RegistrarSalida(ctx, Salida{ProductoID: "kaiak", Cantidad: 3, Tipo: domain.MovVenta, ReferenciaID: &ref}); err != nil {
+		t.Fatal(err)
+	}
+	n, err := s.RevertirSalidas(ctx, ref, domain.MovVenta, "Anulación")
+	if err != nil || n != 3 {
+		t.Fatalf("repuestas = %d, %v", n, err)
+	}
+	if st, _ := repo.StockProducto(ctx, "kaiak"); st != 4 {
+		t.Errorf("stock = %d", st)
+	}
+	// Cada lote recupera lo suyo
+	for _, l := range repo.lotes {
+		if repo.stockLote(l.ID) != 2 {
+			t.Errorf("lote %s = %d", l.ID, repo.stockLote(l.ID))
+		}
+	}
+	// Idempotente
+	if n, _ := s.RevertirSalidas(ctx, ref, domain.MovVenta, "otra vez"); n != 0 {
+		t.Errorf("segunda reversión repuso %d", n)
 	}
 }

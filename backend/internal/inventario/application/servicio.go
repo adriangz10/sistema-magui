@@ -103,7 +103,7 @@ func (s *Servicio) RegistrarSalida(ctx context.Context, sal Salida) ([]domain.As
 		if err != nil {
 			return err
 		}
-		asignaciones = domain.AsignarFEFO(lotes, sal.Cantidad)
+		asignaciones = domain.AsignarFEFO(lotes, sal.Cantidad, s.hoy())
 		if !sal.PermitirNegativo && asignaciones[len(asignaciones)-1].LoteID == nil {
 			stock, err := s.repo.StockProducto(ctx, sal.ProductoID)
 			if err != nil {
@@ -126,6 +126,33 @@ func (s *Servicio) RegistrarSalida(ctx context.Context, sal Salida) ([]domain.As
 		return nil, err
 	}
 	return asignaciones, nil
+}
+
+// RevertirSalidas devuelve el stock que salió por una operación (ej. al anular una venta):
+// crea movimientos inversos de tipo ANULACION en los mismos lotes. Es idempotente:
+// si ya se revirtió, no hace nada. Devuelve cuántas unidades repuso.
+func (s *Servicio) RevertirSalidas(ctx context.Context, referenciaID string, tipoOriginal domain.TipoMovimiento, nota string) (int, error) {
+	repuestas := 0
+	err := s.tx.EnTransaccion(ctx, func(ctx context.Context) error {
+		previas, err := s.repo.MovimientosPorReferencia(ctx, referenciaID, domain.MovAnulacion)
+		if err != nil || len(previas) > 0 {
+			return err
+		}
+		salidas, err := s.repo.MovimientosPorReferencia(ctx, referenciaID, tipoOriginal)
+		if err != nil {
+			return err
+		}
+		ahora := s.reloj.Ahora()
+		ref := referenciaID
+		inversos := make([]domain.Movimiento, 0, len(salidas))
+		for _, m := range salidas {
+			inversos = append(inversos, domain.Movimiento{ID: s.ids.Nuevo(), ProductoID: m.ProductoID, LoteID: m.LoteID,
+				Cantidad: -m.Cantidad, Tipo: domain.MovAnulacion, ReferenciaID: &ref, Nota: strings.TrimSpace(nota), Fecha: ahora})
+			repuestas += -m.Cantidad
+		}
+		return s.repo.RegistrarMovimientos(ctx, inversos)
+	})
+	return repuestas, err
 }
 
 // AjustarStock corrige el stock a mano (conteo, rotura, vencido, regalo, ...).

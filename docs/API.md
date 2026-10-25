@@ -86,8 +86,9 @@ Cuerpo de producto:
 ## Inventario
 
 El stock nunca se edita directo: cada cambio es un **movimiento** (`INICIAL`, `COMPRA`, `VENTA`, `ANULACION`, `AJUSTE`)
-y el stock es la suma. Cada compra crea un **lote** con su vencimiento y costo. Las salidas se descuentan
-primero de los lotes que vencen antes (FEFO).
+y el stock es la suma. Cada compra crea un **lote** con su vencimiento y costo. Las salidas se descuentan primero de los lotes
+vigentes que vencen antes (FEFO), después los sin fecha y por último los ya vencidos (lo vencido sigue en las
+alertas hasta que se descarte con un ajuste).
 
 | Método | Ruta | Detalle |
 |---|---|---|
@@ -123,3 +124,39 @@ Al registrarla, en una sola operación (todo o nada):
   de reventa (queda en el historial con origen `COMPRA`).
 
 Los combos no se compran (se compran sus productos). `fecha` vacía = ahora.
+
+## Ventas
+
+| Método | Ruta | Detalle |
+|---|---|---|
+| POST | `/ventas` | Cobrar (ver abajo) |
+| GET | `/ventas` | Paginado, la más reciente primero. Filtros: `desde`, `hasta`, `estado` (CONFIRMADA/ANULADA), `metodo` |
+| GET | `/ventas/{id}` | Detalle: renglones, pagos, costo, ganancia y vuelto |
+| POST | `/ventas/{id}/anular` | `{motivo}` — devuelve el stock a los lotes de donde salió |
+
+```json
+{
+  "items": [ { "productoId": "…", "cantidad": 1 }, { "productoId": "…", "cantidad": 2 } ],
+  "pagos": [ { "metodo": "QR", "monto": "40000" }, { "metodo": "EFECTIVO", "monto": "50000" } ],
+  "origen": "WEB",
+  "permitirSinStock": false
+}
+```
+
+**Precios:** se toman del catálogo en el momento del cobro (el frontend no los envía).
+
+**Pagos combinados** (`EFECTIVO`, `TRANSFERENCIA`, `QR`, `TARJETA`):
+- Transferencia, QR y tarjeta no pueden superar el total (no dan vuelto). Puede haber varios.
+- Efectivo: un solo renglón con **lo que entregó el cliente**; cubre lo que falta y el resto es vuelto.
+- La suma aplicada debe ser exactamente el total. Si falta: 409 `pagos_insuficientes` ("Faltan $500.00…").
+- Cada pago queda guardado con su método y monto; el efectivo además con `montoRecibido` y `vuelto`.
+
+Cálculo para la pantalla (mismo criterio que el servidor):
+`falta = total − (suma de no-efectivo) − efectivo` (mínimo 0); `vuelto = efectivo − (total − suma de no-efectivo)` (mínimo 0).
+
+**Stock:** si no alcanza responde 409 `stock_insuficiente` con el nombre del producto. Si la cajera confirma que
+igual lo tiene, se reenvía con `"permitirSinStock": true` (el stock queda negativo hasta corregirlo).
+Los combos descuentan el stock de sus componentes.
+
+**Ganancia:** `costoTotal` sale del costo de los lotes vendidos (o del último costo del producto si el lote no
+lo tiene). `ganancia = total − costoTotal`.

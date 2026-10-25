@@ -25,7 +25,7 @@ func TestAsignarFEFO(t *testing.T) {
 		lote("nov", venc("2026-11-01"), 1, 3),
 		lote("vacio", venc("2026-10-01"), 0, 4),
 	}
-	got := AsignarFEFO(lotes, 5)
+	got := AsignarFEFO(lotes, 5, fecha.Nueva(2026, 10, 25))
 	want := []struct {
 		lote string
 		cant int
@@ -44,17 +44,17 @@ func TestAsignarFEFO(t *testing.T) {
 }
 
 func TestAsignarFEFOSinStockSuficiente(t *testing.T) {
-	got := AsignarFEFO([]LoteStock{lote("a", nil, 2, 1)}, 5)
+	got := AsignarFEFO([]LoteStock{lote("a", nil, 2, 1)}, 5, fecha.Nueva(2026, 10, 25))
 	if len(got) != 2 || got[1].LoteID != nil || got[1].Cantidad != 3 {
 		t.Fatalf("faltante sin lote: %+v", got)
 	}
-	if got := AsignarFEFO(nil, 1); len(got) != 1 || got[0].LoteID != nil {
+	if got := AsignarFEFO(nil, 1, fecha.Nueva(2026, 10, 25)); len(got) != 1 || got[0].LoteID != nil {
 		t.Fatalf("sin lotes: %+v", got)
 	}
 }
 
 func TestAsignarFEFOMismaFechaPrimeroElMasViejo(t *testing.T) {
-	got := AsignarFEFO([]LoteStock{lote("nuevo", venc("2026-11-01"), 5, 9), lote("viejo", venc("2026-11-01"), 5, 1)}, 1)
+	got := AsignarFEFO([]LoteStock{lote("nuevo", venc("2026-11-01"), 5, 9), lote("viejo", venc("2026-11-01"), 5, 1)}, 1, fecha.Nueva(2026, 10, 25))
 	if *got[0].LoteID != "viejo" {
 		t.Errorf("got %s", *got[0].LoteID)
 	}
@@ -92,5 +92,20 @@ func TestValidaciones(t *testing.T) {
 	}
 	if err := ErrStockInsuficiente(3); err == nil || err.Error() != "stock_insuficiente: No hay stock suficiente (disponible: 3)" {
 		t.Errorf("mensaje = %v", err)
+	}
+}
+
+func TestAsignarFEFOVencidosAlFinal(t *testing.T) {
+	hoy := fecha.Nueva(2026, 10, 25)
+	got := AsignarFEFO([]LoteStock{
+		lote("vencido", venc("2026-09-30"), 1, 1),
+		lote("sin-fecha", nil, 1, 2),
+		lote("vigente", venc("2027-01-01"), 1, 3),
+	}, 3, hoy)
+	orden := []string{"vigente", "sin-fecha", "vencido"}
+	for i, w := range orden {
+		if *got[i].LoteID != w {
+			t.Errorf("[%d] = %s, want %s", i, *got[i].LoteID, w)
+		}
 	}
 }

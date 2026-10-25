@@ -53,6 +53,27 @@ func (r Repositorio) RegistrarMovimientos(ctx context.Context, movs []domain.Mov
 	return err
 }
 
+func (r Repositorio) MovimientosPorReferencia(ctx context.Context, referenciaID string, tipo domain.TipoMovimiento) ([]domain.Movimiento, error) {
+	rows, err := db.Conn(ctx, r.DB).QueryContext(ctx, `
+		SELECT id, producto_id, lote_id, cantidad, tipo, referencia_id, COALESCE(nota, ''), fecha
+		FROM movimiento_stock WHERE referencia_id = ? AND tipo = ? ORDER BY id`, referenciaID, string(tipo))
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []domain.Movimiento
+	for rows.Next() {
+		var m domain.Movimiento
+		var t string
+		if err := rows.Scan(&m.ID, &m.ProductoID, &m.LoteID, &m.Cantidad, &t, &m.ReferenciaID, &m.Nota, &m.Fecha); err != nil {
+			return nil, err
+		}
+		m.Tipo = domain.TipoMovimiento(t)
+		out = append(out, m)
+	}
+	return out, rows.Err()
+}
+
 const consultaLotes = `
 	SELECT l.id, l.producto_id, l.fecha_vencimiento, l.costo_unitario, l.compra_item_id, l.created_at,
 	       COALESCE(SUM(m.cantidad), 0) AS stock

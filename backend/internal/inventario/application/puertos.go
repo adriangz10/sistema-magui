@@ -15,6 +15,8 @@ type Repositorio interface {
 	CrearLote(ctx context.Context, l domain.Lote) error
 	ObtenerLote(ctx context.Context, id string) (domain.LoteStock, error)
 	RegistrarMovimientos(ctx context.Context, m []domain.Movimiento) error
+	// MovimientosPorReferencia devuelve los movimientos de un tipo originados por una operación.
+	MovimientosPorReferencia(ctx context.Context, referenciaID string, tipo domain.TipoMovimiento) ([]domain.Movimiento, error)
 	// LotesConStock devuelve los lotes del producto con stock distinto de cero.
 	LotesConStock(ctx context.Context, productoID string) ([]domain.LoteStock, error)
 	StockProducto(ctx context.Context, productoID string) (int, error)
