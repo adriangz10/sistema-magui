@@ -62,6 +62,15 @@ describe('AuthService e interceptor', () => {
     expect(navegar).toHaveBeenCalledWith(['/ingresar'], expect.anything());
   });
 
+  it('no cierra la sesión por otro 401 (contraseña actual incorrecta al cambiarla)', async () => {
+    await ingresar();
+    const p = auth.cambiarClave('mal', 'nuevaClave123');
+    http.expectOne('/api/auth/cambiar-clave').flush(
+      { error: { code: 'clave_incorrecta', message: 'La contraseña es incorrecta' } }, { status: 401, statusText: 'x' });
+    await expect(p).rejects.toMatchObject({ codigo: 'clave_incorrecta' });
+    expect(auth.autenticada()).toBe(true);
+  });
+
   it('no considera válida una sesión vencida', () => {
     localStorage.setItem('magui.sesion', JSON.stringify({ token: 't', expiraEn: '2020-01-01T00:00:00Z' }));
     TestBed.resetTestingModule();

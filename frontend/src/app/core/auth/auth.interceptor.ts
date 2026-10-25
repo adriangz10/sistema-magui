@@ -6,8 +6,9 @@ import { API_BASE_URL } from '../config/api.config';
 import { AuthService } from './auth.service';
 
 /**
- * Agrega el token a las llamadas a la API y, si la sesión venció (401 fuera del login),
- * la cierra y manda a ingresar de nuevo.
+ * Agrega el token a las llamadas a la API y, si la sesión venció, la cierra y manda a
+ * ingresar de nuevo. Solo se cierra con el código "sesion_invalida": otros 401 (como una
+ * contraseña actual incorrecta al cambiarla) no deben echar a la usuaria.
  */
 export const authInterceptor: HttpInterceptorFn = (req, next) => {
   const auth = inject(AuthService);
@@ -22,10 +23,16 @@ export const authInterceptor: HttpInterceptorFn = (req, next) => {
 
   return next(conToken).pipe(
     catchError((err: unknown) => {
-      if (esApi && !esLogin && err instanceof HttpErrorResponse && err.status === 401) {
+      if (esApi && !esLogin && err instanceof HttpErrorResponse && err.status === 401 && esSesionInvalida(err)) {
         auth.cerrarSesion(router.url);
       }
       return throwError(() => err);
     }),
   );
 };
+
+/** El servidor usa "sesion_invalida" para token ausente, vencido o de una contraseña anterior. */
+function esSesionInvalida(err: HttpErrorResponse): boolean {
+  const codigo = (err.error as { error?: { code?: string } } | null)?.error?.code;
+  return codigo === undefined || codigo === 'sesion_invalida';
+}

@@ -1,13 +1,6 @@
 import { Routes } from '@angular/router';
 import { sesionGuard, sinSesionGuard } from './core/auth/auth.guard';
 
-const proximamente = () => import('./features/proximamente/proximamente.page').then((m) => m.ProximamentePage);
-
-/** Sección provisoria hasta la Fase 8. */
-function seccion(path: string, titulo: string) {
-  return { path, title: titulo, loadComponent: proximamente, data: { titulo } };
-}
-
 export const routes: Routes = [
   {
     path: 'ingresar',
@@ -29,8 +22,8 @@ export const routes: Routes = [
       { path: 'compras', title: 'Compras', loadComponent: () => import('./features/compras/compras.page').then((m) => m.ComprasPage) },
       { path: 'ventas', title: 'Ventas', loadComponent: () => import('./features/ventas/ventas.page').then((m) => m.VentasPage) },
       { path: 'caja', title: 'Caja', loadComponent: () => import('./features/caja/caja.page').then((m) => m.CajaPage) },
-      seccion('estadisticas', 'Estadísticas'),
-      seccion('configuracion', 'Configuración'),
+      { path: 'estadisticas', title: 'Estadísticas', loadComponent: () => import('./features/estadisticas/estadisticas.page').then((m) => m.EstadisticasPage) },
+      { path: 'configuracion', title: 'Configuración', loadComponent: () => import('./features/configuracion/configuracion.page').then((m) => m.ConfiguracionPage) },
     ],
   },
   { path: '**', redirectTo: '' },

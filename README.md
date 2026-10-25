@@ -106,7 +106,7 @@ npm test -- --watch=false
 | 5 | Ventas con pagos combinados y anulación | ✅ |
 | 6 | Caja (gastos) y estadísticas | ✅ |
 | 7 | Frontend base (ingreso, menú, componentes, modo oscuro) | ✅ |
-| 8 | Pantallas de cada módulo | ⏳ |
+| 8 | Pantallas: vender, ventas, productos, categorías, inventario, compras, caja, inicio, estadísticas, configuración | ✅ |
 | 9 | PWA móvil | ⏳ |
 | 10 | Escritorio offline | ⏳ |
 | 11 | Despliegue | ⏳ |

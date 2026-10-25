@@ -71,11 +71,14 @@ internal/<modulo>/
 | `core/ui` | `ToastService` (avisos), `ConfirmacionService` (`await preguntar(...)`), `TemaService` (claro/oscuro) |
 | `core/red` | `ConexionService` (en línea / sin conexión) |
 | `shared/formato` | Pipes `dinero` y `fecha`; `interpretarDinero()` acepta "59.200,50" y devuelve "59200.50" |
-| `shared/ui` | `app-tabla`, `app-paginador`, `app-modal`, `app-campo`, `app-input-dinero`, `app-encabezado` |
+| `shared/ui` | `app-tabla`, `app-paginador`, `app-modal`, `app-campo`, `app-input-dinero` (usa `idCampo`), `app-encabezado`, `app-buscador-producto`, `app-motivo-modal` |
+| `shared/graficos` | `app-grafico-columnas` (SVG, tooltip, tabla), `app-barras-horizontales`, `app-tarjeta-dato`; adaptadores de datos de estadísticas |
+| `shared/catalogo` | `aplanar()` y utilidades del árbol de categorías |
 | `styles.css` | Clases base: `card`, `btn-primario`, `btn-secundario`, `btn-fantasma`, `btn-peligro`, `btn-icono`, `input`, `etiqueta`, `badge-*`, `tabla`, `titulo-pagina` |
 
 - Montos: la API usa texto `"59200.50"`; para sumar en pantalla convertir a centavos (`aCentavos`) y nunca usar `number` con decimales.
 - Fechas y horas siempre en hora de Argentina y formato de 24 h (`fecha` pipe).
+- Gráficos: una sola serie con el rosa de marca validado para contraste (`brand-600` en claro, `brand-500` en oscuro), sin leyenda, eje Y redondeado, máximo rotulado, tooltip con mouse y teclado y siempre "Ver como tabla".
 - Íconos: `lucide-angular` (`<lucide-icon [img]="Icono" />`), empaquetados en la app (funciona sin internet).
 
 ## Git
