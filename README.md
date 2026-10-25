@@ -57,11 +57,20 @@ go run ./cmd/migrate -empresa Natura importar-excel "ruta/STOCK VENCIMIENTOS.xls
 
 Otros comandos: `status`, `down`, `reset`. Con `-driver sqlite -sqlite magui.db` se usa SQLite.
 
-Levantar la API:
+Configurar la contraseña de la dueña (la pide sin mostrarla):
+
+```bash
+go run ./cmd/admin establecer-clave
+```
+
+Levantar la API (aplica las migraciones pendientes al arrancar):
 
 ```bash
 go run ./cmd/api
 ```
+
+Todas las rutas de `/api` salvo `/api/health` y `/api/auth/login` requieren el encabezado
+`Authorization: Bearer <token>` que devuelve el login.
 
 Tests (los de MySQL se activan con `MAGUI_TEST_MYSQL_DSN`, ej. `usuario:clave@tcp(localhost:3306)/`;
 crean y borran una base temporal):
@@ -90,7 +99,8 @@ npm test -- --watch=false
 |---|---|---|
 | 0 | Base del proyecto | ✅ |
 | 1 | Esquema v2 + migraciones + importación | ✅ |
-| 2–6 | Backend por módulos | ⏳ |
+| 2 | Plataforma backend + acceso | ✅ |
+| 3–6 | Backend por módulos | ⏳ |
 | 7–8 | Frontend | ⏳ |
 | 9 | PWA móvil | ⏳ |
 | 10 | Escritorio offline | ⏳ |

@@ -20,6 +20,9 @@ internal/<modulo>/
 - Un módulo **no** importa el `domain` de otro. Se comunica mediante puertos de `application` (ej. ventas usa un puerto `Inventario`).
 - El cableado (qué adaptador va con qué caso de uso) vive solo en `cmd/*`.
 - `internal/platform` es infraestructura compartida (config, logger, http, db), no lógica de negocio.
+- `internal/kernel` es el núcleo compartido que pueden usar todos los dominios: `dinero`, `errores`,
+  `paginacion`, `id`, `reloj` y `tx` (puerto de transacciones). No depende de nada más.
+- Cada módulo expone un `modulo.go` en su raíz que arma servicio + adaptadores; `cmd/*` solo los junta.
 
 ### Reglas
 - Dinero: nunca `float64`. En el dominio es un tipo `Dinero` (int64 en **centavos**).
@@ -29,7 +32,13 @@ internal/<modulo>/
 - IDs: UUID v7 generados por la aplicación (permite crear registros offline).
 - Fechas: se guardan en UTC y se muestran en la hora de Argentina.
 - Errores de dominio tipados (`ErrStockInsuficiente`, …). El adaptador HTTP los traduce a códigos de estado.
-- Toda operación que toca varias tablas va en una transacción.
+- Toda operación que toca varias tablas va en una transacción: el caso de uso recibe un
+  `tx.Transactor` y los repositorios usan `db.Conn(ctx, conn)`, que toma la transacción del contexto.
+- Errores: los casos de uso devuelven `errores.Invalido/NoEncontrado/Conflicto/...` con un código estable
+  (`stock_insuficiente`). `httpx.Error` los traduce a 422/404/409/401/429; cualquier otro error es 500
+  y se registra en el log sin mostrar detalles al usuario.
+- Horas: `reloj.Reloj` se inyecta en los servicios (en tests, `reloj.Fijo`). Para agrupar "el día" se
+  usa `reloj.ZonaArgentina`.
 - Tests: casos de uso con repositorios en memoria; adaptadores con base real.
 
 ### API HTTP

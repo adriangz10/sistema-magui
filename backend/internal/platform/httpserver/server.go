@@ -3,7 +3,6 @@ package httpserver
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"log/slog"
 	"net/http"
@@ -12,37 +11,87 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/go-chi/cors"
+
+	"magui/internal/platform/httpx"
 )
 
-// Module es lo que cada módulo (catálogo, ventas, ...) implementa para colgar sus rutas.
+// Module es lo que cada módulo (catálogo, ventas, ...) implementa para colgar sus rutas
+// protegidas (requieren sesión).
 type Module interface {
 	Routes(r chi.Router)
 }
 
-// NewRouter crea el router con middlewares comunes, /health y las rutas de los módulos bajo /api.
-func NewRouter(log *slog.Logger, allowedOrigins []string, version string, modules ...Module) http.Handler {
+// PublicModule es opcional: rutas accesibles sin sesión (ej. login).
+type PublicModule interface {
+	PublicRoutes(r chi.Router)
+}
+
+// Check verifica una dependencia (ej. la base de datos) para /health.
+type Check func(ctx context.Context) error
+
+// Options configura el router.
+type Options struct {
+	AllowedOrigins []string
+	Version        string
+	Checks         map[string]Check
+	// Autenticacion protege las rutas de los módulos. nil = sin protección (solo tests/escritorio).
+	Autenticacion func(http.Handler) http.Handler
+}
+
+// NewRouter crea el router con middlewares comunes y monta todo bajo /api.
+func NewRouter(log *slog.Logger, opt Options, modules ...Module) http.Handler {
 	r := chi.NewRouter()
 	r.Use(middleware.RequestID)
 	r.Use(requestLogger(log))
 	r.Use(middleware.Recoverer)
 	r.Use(cors.Handler(cors.Options{
-		AllowedOrigins:   allowedOrigins,
+		AllowedOrigins:   opt.AllowedOrigins,
 		AllowedMethods:   []string{"GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"},
 		AllowedHeaders:   []string{"Authorization", "Content-Type"},
-		AllowCredentials: true,
+		AllowCredentials: false, // la sesión viaja en el encabezado Authorization, no en cookies
 		MaxAge:           300,
 	}))
 
 	r.Route("/api", func(api chi.Router) {
-		api.Get("/health", func(w http.ResponseWriter, _ *http.Request) {
-			w.Header().Set("Content-Type", "application/json")
-			_ = json.NewEncoder(w).Encode(map[string]string{"status": "ok", "version": version})
-		})
+		api.Get("/health", health(opt.Version, opt.Checks))
 		for _, m := range modules {
-			m.Routes(api)
+			if pm, ok := m.(PublicModule); ok {
+				pm.PublicRoutes(api)
+			}
 		}
+		api.Group(func(prot chi.Router) {
+			if opt.Autenticacion != nil {
+				prot.Use(opt.Autenticacion)
+			}
+			for _, m := range modules {
+				m.Routes(prot)
+			}
+		})
+		api.NotFound(func(w http.ResponseWriter, _ *http.Request) {
+			httpx.JSON(w, http.StatusNotFound, map[string]any{
+				"error": map[string]string{"code": "ruta_no_encontrada", "message": "La ruta no existe"},
+			})
+		})
 	})
 	return r
+}
+
+func health(version string, checks map[string]Check) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		ctx, cancel := context.WithTimeout(r.Context(), 3*time.Second)
+		defer cancel()
+		estado, code := "ok", http.StatusOK
+		resultados := map[string]string{}
+		for nombre, check := range checks {
+			if err := check(ctx); err != nil {
+				resultados[nombre] = "error"
+				estado, code = "degradado", http.StatusServiceUnavailable
+				continue
+			}
+			resultados[nombre] = "ok"
+		}
+		httpx.JSON(w, code, map[string]any{"status": estado, "version": version, "checks": resultados})
+	}
 }
 
 func requestLogger(log *slog.Logger) func(http.Handler) http.Handler {

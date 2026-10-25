@@ -17,7 +17,18 @@ type Config struct {
 	AllowedOrigins  []string
 	ShutdownTimeout time.Duration
 	DB              DBConfig
+	Auth            AuthConfig
 }
+
+// AuthConfig configura las sesiones de la dueña.
+type AuthConfig struct {
+	Secreto        string        // firma los tokens; mínimo 32 caracteres
+	SecretoDeDev   bool          // true si se está usando el secreto fijo de desarrollo
+	DuracionSesion time.Duration // cuánto dura una sesión antes de pedir la contraseña de nuevo
+}
+
+// secretoDev solo se usa en desarrollo cuando no se definió AUTH_SECRET.
+const secretoDev = "solo-desarrollo-no-usar-en-produccion-0000"
 
 // DBConfig son los datos de conexión a MySQL.
 type DBConfig struct {
@@ -54,6 +65,21 @@ func Load() (Config, error) {
 	}
 	if cfg.Env != "dev" && cfg.Env != "prod" {
 		return Config{}, fmt.Errorf("APP_ENV inválido %q: use dev o prod", cfg.Env)
+	}
+
+	dur, err := time.ParseDuration(get("SESSION_DURATION", "720h"))
+	if err != nil || dur <= 0 {
+		return Config{}, fmt.Errorf("SESSION_DURATION inválido: use por ejemplo 720h")
+	}
+	cfg.Auth = AuthConfig{Secreto: get("AUTH_SECRET", ""), DuracionSesion: dur}
+	if cfg.Auth.Secreto == "" {
+		if cfg.Env == "prod" {
+			return Config{}, fmt.Errorf("AUTH_SECRET es obligatorio en producción")
+		}
+		cfg.Auth.Secreto, cfg.Auth.SecretoDeDev = secretoDev, true
+	}
+	if len(cfg.Auth.Secreto) < 32 {
+		return Config{}, fmt.Errorf("AUTH_SECRET debe tener al menos 32 caracteres")
 	}
 	return cfg, nil
 }
