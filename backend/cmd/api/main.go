@@ -9,6 +9,7 @@ import (
 	"syscall"
 
 	"magui/internal/auth"
+	"magui/internal/catalogo"
 	"magui/internal/platform/config"
 	"magui/internal/platform/db"
 	"magui/internal/platform/httpserver"
@@ -65,7 +66,8 @@ func run() error {
 		Autenticacion:  acceso.Handler.RequerirSesion,
 	},
 		acceso.Handler,
-		// Los demás módulos (catálogo, ventas, ...) se agregan acá en las próximas fases.
+		catalogo.NuevoModuloMySQL(conn, log).Handler,
+		// Inventario, compras, ventas, caja y estadísticas se agregan en las próximas fases.
 	)
 
 	return httpserver.Run(ctx, log, cfg.HTTPAddr, router, cfg.ShutdownTimeout)

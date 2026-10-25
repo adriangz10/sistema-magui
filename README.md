@@ -5,6 +5,7 @@ para una revendedora de cosmética (Natura, Avon, …). Web, móvil (PWA) y escr
 
 - Estrategia y plan por fases: [docs/PLAN.md](docs/PLAN.md)
 - Convenciones de código: [docs/CONVENCIONES.md](docs/CONVENCIONES.md)
+- Referencia de la API: [docs/API.md](docs/API.md)
 
 ## Estructura
 
@@ -100,7 +101,8 @@ npm test -- --watch=false
 | 0 | Base del proyecto | ✅ |
 | 1 | Esquema v2 + migraciones + importación | ✅ |
 | 2 | Plataforma backend + acceso | ✅ |
-| 3–6 | Backend por módulos | ⏳ |
+| 3 | Catálogo (productos, categorías, empresas, combos, precios) | ✅ |
+| 4–6 | Inventario, compras, ventas, caja, estadísticas | ⏳ |
 | 7–8 | Frontend | ⏳ |
 | 9 | PWA móvil | ⏳ |
 | 10 | Escritorio offline | ⏳ |
