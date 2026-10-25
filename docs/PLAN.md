@@ -145,8 +145,13 @@ venta_pago(id, venta_id, metodo ENUM('EFECTIVO','TRANSFERENCIA','QR','TARJETA'),
 
 gasto_caja(id UUID, fecha, monto, motivo, categoria_gasto, metodo)
 
-sync_outbox / sync_cursor   (solo escritorio)
+sync_outbox / sync_cursor   (solo escritorio, se agregan en la Fase 10)
 ```
+
+> Implementado en la Fase 1: `backend/migrations/{mysql,sqlite}/00001_esquema_inicial.sql`.
+> Vistas `v_stock_producto` y `v_stock_lote` calculan el stock sumando movimientos.
+> Del Excel se descartaron: precio oferta (decisión 4), días restantes y estado (se calculan),
+> columnas de atributos vacías y el único "Camino olfativo" cargado (generado por fórmula a partir de la descripción).
 
 Claves:
 - `venta_item.costo_unitario` guarda el costo **al momento de vender**. Así el margen histórico no cambia si después cambia el costo.

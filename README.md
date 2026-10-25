@@ -43,13 +43,28 @@ docker compose -f deploy/docker-compose.yml --env-file deploy/.env up -d
 cp backend/.env.example backend/.env
 ```
 
-Completar `backend/.env` y luego, desde `backend/`:
+Completar `backend/.env`. Luego, desde `backend/`, crear el esquema:
+
+```bash
+go run ./cmd/migrate up
+```
+
+Importar el Excel de la clienta (solo la primera vez; si se repite, omite los SKU existentes):
+
+```bash
+go run ./cmd/migrate -empresa Natura importar-excel "ruta/STOCK VENCIMIENTOS.xlsx"
+```
+
+Otros comandos: `status`, `down`, `reset`. Con `-driver sqlite -sqlite magui.db` se usa SQLite.
+
+Levantar la API:
 
 ```bash
 go run ./cmd/api
 ```
 
-Tests:
+Tests (los de MySQL se activan con `MAGUI_TEST_MYSQL_DSN`, ej. `usuario:clave@tcp(localhost:3306)/`;
+crean y borran una base temporal):
 
 ```bash
 go test ./...
@@ -74,7 +89,7 @@ npm test -- --watch=false
 | Fase | Descripción | Estado |
 |---|---|---|
 | 0 | Base del proyecto | ✅ |
-| 1 | Esquema v2 + migraciones + importación | ⏳ |
+| 1 | Esquema v2 + migraciones + importación | ✅ |
 | 2–6 | Backend por módulos | ⏳ |
 | 7–8 | Frontend | ⏳ |
 | 9 | PWA móvil | ⏳ |

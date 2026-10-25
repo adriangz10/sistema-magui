@@ -22,7 +22,10 @@ internal/<modulo>/
 - `internal/platform` es infraestructura compartida (config, logger, http, db), no lógica de negocio.
 
 ### Reglas
-- Dinero: `decimal` (nunca `float64`). En MySQL `DECIMAL(12,2)`.
+- Dinero: nunca `float64`. En el dominio es un tipo `Dinero` (int64 en **centavos**).
+  MySQL lo guarda como `DECIMAL(12,2)` y SQLite como `INTEGER` en centavos; cada adaptador convierte.
+- Esquema: las migraciones viven en `backend/migrations/{mysql,sqlite}` y se mantienen **en paralelo**
+  (mismas tablas y columnas). Cada cambio de esquema es una migración nueva en ambas carpetas.
 - IDs: UUID v7 generados por la aplicación (permite crear registros offline).
 - Fechas: se guardan en UTC y se muestran en la hora de Argentina.
 - Errores de dominio tipados (`ErrStockInsuficiente`, …). El adaptador HTTP los traduce a códigos de estado.

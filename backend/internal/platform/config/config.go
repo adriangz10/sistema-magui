@@ -6,6 +6,8 @@ import (
 	"os"
 	"strings"
 	"time"
+
+	"github.com/joho/godotenv"
 )
 
 // Config agrupa toda la configuración del proceso.
@@ -33,7 +35,10 @@ func (d DBConfig) DSN() string {
 }
 
 // Load lee las variables de entorno y aplica valores por defecto de desarrollo.
+// Si existe un archivo .env en el directorio actual, lo carga primero
+// (las variables ya definidas en el sistema tienen prioridad).
 func Load() (Config, error) {
+	_ = godotenv.Load()
 	cfg := Config{
 		Env:             get("APP_ENV", "dev"),
 		HTTPAddr:        get("HTTP_ADDR", ":8080"),
