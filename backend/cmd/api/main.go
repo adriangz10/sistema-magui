@@ -10,6 +10,8 @@ import (
 
 	"magui/internal/auth"
 	"magui/internal/catalogo"
+	"magui/internal/compras"
+	"magui/internal/inventario"
 	"magui/internal/platform/config"
 	"magui/internal/platform/db"
 	"magui/internal/platform/httpserver"
@@ -59,6 +61,9 @@ func run() error {
 		return err
 	}
 
+	cat := catalogo.NuevoModuloMySQL(conn, log)
+	inv := inventario.NuevoModuloMySQL(conn, cat.Servicio, log)
+
 	router := httpserver.NewRouter(log, httpserver.Options{
 		AllowedOrigins: cfg.AllowedOrigins,
 		Version:        version,
@@ -66,8 +71,10 @@ func run() error {
 		Autenticacion:  acceso.Handler.RequerirSesion,
 	},
 		acceso.Handler,
-		catalogo.NuevoModuloMySQL(conn, log).Handler,
-		// Inventario, compras, ventas, caja y estadísticas se agregan en las próximas fases.
+		cat.Handler,
+		inv.Handler,
+		compras.NuevoModuloMySQL(conn, cat.Servicio, inv.Servicio, log).Handler,
+		// Ventas, caja y estadísticas se agregan en las próximas fases.
 	)
 
 	return httpserver.Run(ctx, log, cfg.HTTPAddr, router, cfg.ShutdownTimeout)

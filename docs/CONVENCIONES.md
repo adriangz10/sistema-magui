@@ -17,7 +17,9 @@ internal/<modulo>/
     sqlite/      implementación de los puertos para el escritorio
 ```
 - Las dependencias apuntan **hacia adentro**: adapters → application → domain.
-- Un módulo **no** importa el `domain` de otro. Se comunica mediante puertos de `application` (ej. ventas usa un puerto `Inventario`).
+- Un módulo **no** importa el `domain` de otro. Se comunica mediante puertos de `application` (ej. compras define
+  un puerto `Inventario`). La implementación vive en `adapters/enlaces` (o similar) del módulo que consume y
+  llama al servicio del otro módulo en el mismo proceso; la transacción se comparte por el contexto.
 - El cableado (qué adaptador va con qué caso de uso) vive solo en `cmd/*`.
 - `internal/platform` es infraestructura compartida (config, logger, http, db), no lógica de negocio.
 - `internal/kernel` es el núcleo compartido que pueden usar todos los dominios: `dinero`, `errores`,

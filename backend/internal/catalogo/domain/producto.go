@@ -187,6 +187,29 @@ func (p *Producto) CambiarPrecio(nuevo dinero.Dinero, ahora time.Time) (dinero.D
 	return anterior, nil
 }
 
+// RegistrarCompra actualiza el último costo y, si viene, el nuevo precio de reventa.
+// Devuelve el precio anterior si cambió (para el historial).
+func (p *Producto) RegistrarCompra(costo dinero.Dinero, precioNuevo *dinero.Dinero, ahora time.Time) (*dinero.Dinero, error) {
+	if p.Tipo != TipoSimple {
+		return nil, ErrComboInvalido("No se puede comprar un combo: se compran sus productos")
+	}
+	if costo.EsNegativo() {
+		return nil, errores.Invalido("costo_invalido", "El costo no puede ser negativo")
+	}
+	var anterior *dinero.Dinero
+	if precioNuevo != nil && *precioNuevo != p.PrecioVenta {
+		a, err := p.CambiarPrecio(*precioNuevo, ahora)
+		if err != nil {
+			return nil, err
+		}
+		anterior = &a
+	} else {
+		p.Version++
+	}
+	p.Costo, p.UpdatedAt = &costo, ahora
+	return anterior, nil
+}
+
 // CambiarEstado activa o desactiva (baja lógica: se conserva para el historial de ventas).
 func (p *Producto) CambiarEstado(activo bool, ahora time.Time) {
 	if p.Activo == activo {

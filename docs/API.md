@@ -82,3 +82,44 @@ Cuerpo de producto:
 - SKU y código de barras son únicos entre **todos** los productos (un código nunca puede apuntar a dos productos).
 - Combo: `"tipo": "COMBO"` e `"items": [{"productoId": "…", "cantidad": 2}]`. Componentes simples y activos,
   al menos 2 unidades en total. Su `stock` es cuántos se pueden armar con el stock de los componentes.
+
+## Inventario
+
+El stock nunca se edita directo: cada cambio es un **movimiento** (`INICIAL`, `COMPRA`, `VENTA`, `ANULACION`, `AJUSTE`)
+y el stock es la suma. Cada compra crea un **lote** con su vencimiento y costo. Las salidas se descuentan
+primero de los lotes que vencen antes (FEFO).
+
+| Método | Ruta | Detalle |
+|---|---|---|
+| GET | `/inventario/productos/{id}/stock` | `{productoId, sku, nombre, stock, lotes: [{id, vencimiento, costo, stock, estado, diasRestantes}]}` |
+| GET | `/inventario/movimientos` | Paginado. Filtros: `productoId`, `tipo`, `desde`, `hasta` (AAAA-MM-DD, inclusive) |
+| POST | `/inventario/ajustes` | `{productoId, cantidad, motivo, loteId?, vencimiento?, costo?}` — cantidad positiva suma, negativa resta (nunca deja stock negativo) |
+| GET | `/inventario/vencimientos?estado=` | `vencidos`, `por_vencer` o `todos`. Lotes con stock, ordenados por fecha |
+| GET | `/inventario/alertas` | `{vencidos, porVencer, sinStock, stockBajo, diasAlerta}` |
+| GET / PUT | `/inventario/configuracion` | `{diasAlertaVencimiento}` (1 a 365, por defecto 90) |
+
+Estados de un lote: `VENCIDO`, `POR_VENCER` (dentro del plazo de aviso), `VIGENTE`, `SIN_FECHA`.
+
+## Compras
+
+| Método | Ruta | Detalle |
+|---|---|---|
+| GET | `/compras` | Paginado, de la más reciente. Filtros: `desde`, `hasta`, `empresaId` |
+| GET | `/compras/{id}` | Detalle con renglones |
+| POST | `/compras` | Registra la compra (ver abajo) |
+
+```json
+{
+  "fecha": "2026-10-24", "empresaId": "…", "notas": "Pedido ciclo 15",
+  "items": [
+    { "productoId": "…", "cantidad": 4, "costoUnitario": "35520", "precioVentaNuevo": "62000", "vencimiento": "2027-09-30" }
+  ]
+}
+```
+Al registrarla, en una sola operación (todo o nada):
+- se guarda la compra con su total (suma de cantidad × costo),
+- cada renglón suma stock en un lote nuevo con su vencimiento y costo,
+- el producto queda con ese costo como "último costo" y, si se indicó `precioVentaNuevo`, con el nuevo precio
+  de reventa (queda en el historial con origen `COMPRA`).
+
+Los combos no se compran (se compran sus productos). `fecha` vacía = ahora.

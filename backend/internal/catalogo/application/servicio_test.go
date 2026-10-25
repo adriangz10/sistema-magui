@@ -249,3 +249,29 @@ func TestAjusteQueDejaPrecioInvalidoNoCambiaNada(t *testing.T) {
 		t.Errorf("no debería cambiar ningún precio: %s", p.PrecioVenta)
 	}
 }
+
+func TestRegistrarCostosCompra(t *testing.T) {
+	e := nuevoEntorno()
+	a := debe(e.svc.CrearProducto(ctx, simple("P1", "A", "100")))
+	b := debe(e.svc.CrearProducto(ctx, simple("P2", "B", "200")))
+	nuevo := dinero.MustParse("120")
+	err := e.svc.RegistrarCostosCompra(ctx, []CostoCompra{
+		{ProductoID: a.ID, Costo: dinero.MustParse("60"), PrecioVenta: &nuevo},
+		{ProductoID: b.ID, Costo: dinero.MustParse("90")}, // sin precio nuevo
+	}, "Compra Natura")
+	if err != nil {
+		t.Fatal(err)
+	}
+	pa, _ := e.productos.ObtenerPorID(ctx, a.ID)
+	pb, _ := e.productos.ObtenerPorID(ctx, b.ID)
+	if pa.Costo.String() != "60.00" || pa.PrecioVenta.String() != "120.00" || pb.Costo.String() != "90.00" || pb.PrecioVenta.String() != "200.00" {
+		t.Errorf("A = %s/%s, B = %s/%s", pa.Costo, pa.PrecioVenta, pb.Costo, pb.PrecioVenta)
+	}
+	if len(e.productos.historial) != 1 || e.productos.historial[0].Origen != domain.OrigenCompra {
+		t.Errorf("historial = %+v", e.productos.historial)
+	}
+	info := debe(e.svc.InfoProductos(ctx, []string{a.ID, "nope"}))
+	if len(info) != 1 || info[a.ID].Costo.String() != "60.00" {
+		t.Errorf("info = %+v", info)
+	}
+}

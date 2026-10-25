@@ -102,7 +102,8 @@ npm test -- --watch=false
 | 1 | Esquema v2 + migraciones + importación | ✅ |
 | 2 | Plataforma backend + acceso | ✅ |
 | 3 | Catálogo (productos, categorías, empresas, combos, precios) | ✅ |
-| 4–6 | Inventario, compras, ventas, caja, estadísticas | ⏳ |
+| 4 | Inventario (lotes, vencimientos, ajustes) y compras | ✅ |
+| 5–6 | Ventas, caja, estadísticas | ⏳ |
 | 7–8 | Frontend | ⏳ |
 | 9 | PWA móvil | ⏳ |
 | 10 | Escritorio offline | ⏳ |
