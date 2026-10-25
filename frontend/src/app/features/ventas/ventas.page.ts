@@ -10,6 +10,7 @@ import { FechaPipe, hoyISO } from '../../shared/formato/fecha';
 import { CampoComponent } from '../../shared/ui/campo.component';
 import { EncabezadoComponent } from '../../shared/ui/encabezado.component';
 import { ModalComponent } from '../../shared/ui/modal.component';
+import { MotivoModalComponent } from '../../shared/ui/motivo-modal.component';
 import { TablaComponent } from '../../shared/ui/tabla.component';
 
 const NOMBRE_METODO: Record<MetodoPago, string> = { EFECTIVO: 'Efectivo', TRANSFERENCIA: 'Transferencia', QR: 'QR', TARJETA: 'Tarjeta' };
@@ -17,7 +18,7 @@ const NOMBRE_METODO: Record<MetodoPago, string> = { EFECTIVO: 'Efectivo', TRANSF
 /** Historial de ventas con filtros, detalle y anulación. */
 @Component({
   selector: 'app-ventas',
-  imports: [FormsModule, DineroPipe, FechaPipe, CampoComponent, EncabezadoComponent, ModalComponent, TablaComponent],
+  imports: [FormsModule, DineroPipe, FechaPipe, CampoComponent, EncabezadoComponent, ModalComponent, MotivoModalComponent, TablaComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <app-encabezado titulo="Ventas" descripcion="Todas las ventas registradas, de la más reciente a la más vieja" />
@@ -147,18 +148,10 @@ const NOMBRE_METODO: Record<MetodoPago, string> = { EFECTIVO: 'Efectivo', TRANSF
     </app-modal>
 
     <!-- Anulación -->
-    <app-modal [abierto]="anulando()" titulo="Anular venta" (cerrar)="anulando.set(false)">
-      <p class="mb-3 text-sm text-ink-600 dark:text-ink-300">El stock vuelve a los lotes de donde salió. La venta queda registrada como anulada.</p>
-      <app-campo etiqueta="Motivo" para="motivo-anulacion" [error]="errorMotivo()">
-        <textarea id="motivo-anulacion" class="input min-h-20 py-2" maxlength="255" [(ngModel)]="motivo" name="motivo"
-                  placeholder="Ej.: devolución del cliente, error de carga"
-                  [attr.aria-invalid]="errorMotivo() ? true : null" [attr.aria-describedby]="errorMotivo() ? 'motivo-anulacion-error' : null"></textarea>
-      </app-campo>
-      <div pie>
-        <button type="button" class="btn-secundario" (click)="anulando.set(false)">Cancelar</button>
-        <button type="button" class="btn-peligro" [disabled]="procesando()" (click)="anular()">Anular</button>
-      </div>
-    </app-modal>
+    <app-motivo-modal [abierto]="anulando()" titulo="Anular venta" textoConfirmar="Anular" [procesando]="procesando()"
+                      [error]="errorMotivo()" placeholder="Ej.: devolución del cliente, error de carga"
+                      descripcion="El stock vuelve a los lotes de donde salió. La venta queda registrada como anulada."
+                      (confirmar)="anular($event)" (cerrar)="anulando.set(false)" />
   `,
 })
 export class VentasPage {
@@ -180,7 +173,6 @@ export class VentasPage {
   protected readonly anulando = signal(false);
   protected readonly procesando = signal(false);
   protected readonly errorMotivo = signal('');
-  protected motivo = '';
 
   constructor() {
     void this.cargar();
@@ -221,19 +213,18 @@ export class VentasPage {
   }
 
   protected pedirAnulacion(): void {
-    this.motivo = '';
     this.errorMotivo.set('');
     this.anulando.set(true);
   }
 
-  protected async anular(): Promise<void> {
+  protected async anular(motivo: string): Promise<void> {
     const d = this.detalle();
     if (!d) {
       return;
     }
     this.procesando.set(true);
     try {
-      const anulada = await firstValueFrom(this.api.anular(d.id, this.motivo));
+      const anulada = await firstValueFrom(this.api.anular(d.id, motivo));
       this.anulando.set(false);
       this.detalle.set(anulada);
       this.toast.exito('Venta anulada. El stock se repuso.');
