@@ -9,8 +9,10 @@ import (
 	"syscall"
 
 	"magui/internal/auth"
+	"magui/internal/caja"
 	"magui/internal/catalogo"
 	"magui/internal/compras"
+	"magui/internal/estadisticas"
 	"magui/internal/inventario"
 	"magui/internal/platform/config"
 	"magui/internal/platform/db"
@@ -76,7 +78,8 @@ func run() error {
 		inv.Handler,
 		compras.NuevoModuloMySQL(conn, cat.Servicio, inv.Servicio, log).Handler,
 		ventas.NuevoModuloMySQL(conn, cat.Servicio, inv.Servicio, log).Handler,
-		// Caja y estadísticas se agregan en la Fase 6.
+		caja.NuevoModuloMySQL(conn, log).Handler,
+		estadisticas.NuevoModuloMySQL(conn, log).Handler,
 	)
 
 	return httpserver.Run(ctx, log, cfg.HTTPAddr, router, cfg.ShutdownTimeout)

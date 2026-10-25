@@ -104,7 +104,7 @@ npm test -- --watch=false
 | 3 | Catálogo (productos, categorías, empresas, combos, precios) | ✅ |
 | 4 | Inventario (lotes, vencimientos, ajustes) y compras | ✅ |
 | 5 | Ventas con pagos combinados y anulación | ✅ |
-| 6 | Caja y estadísticas | ⏳ |
+| 6 | Caja (gastos) y estadísticas | ✅ |
 | 7–8 | Frontend | ⏳ |
 | 9 | PWA móvil | ⏳ |
 | 10 | Escritorio offline | ⏳ |

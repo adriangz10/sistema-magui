@@ -160,3 +160,50 @@ Los combos descuentan el stock de sus componentes.
 
 **Ganancia:** `costoTotal` sale del costo de los lotes vendidos (o del último costo del producto si el lote no
 lo tiene). `ganancia = total − costoTotal`.
+
+## Caja (gastos y retiros)
+
+Dinero que sale de la caja y que **no** es compra de mercadería (servicios, transporte, retiro personal…).
+Los gastos no se borran: se anulan.
+
+| Método | Ruta | Detalle |
+|---|---|---|
+| GET | `/caja/gastos` | Paginado. Filtros: `desde`, `hasta`, `categoria`, `incluirAnulados=true`. Incluye `totalMonto` (suma de los filtrados, sin anulados) |
+| POST | `/caja/gastos` | `{fecha?, monto, motivo, categoria?, metodo?}` (método por defecto EFECTIVO) |
+| POST | `/caja/gastos/{id}/anular` | `{motivo}` |
+| GET | `/caja/categorias` | Sugeridas + las ya usadas |
+
+## Estadísticas
+
+Todas aceptan `?periodo=dia|semana|mes|anio|rango` (por defecto `dia`; la semana va de lunes a domingo) y, para
+`rango`, `&desde=AAAA-MM-DD&hasta=AAAA-MM-DD` (máximo un año). Las fechas son de Argentina.
+Solo cuentan las ventas confirmadas y los gastos no anulados.
+
+| Método | Ruta | Detalle |
+|---|---|---|
+| GET | `/estadisticas/resumen` | Tablero (ver abajo) |
+| GET | `/estadisticas/ventas-por-dia` | Una fila por día del período, con ceros: `[{fecha, cantidad, total, ganancia}]` (no admite `anio`) |
+| GET | `/estadisticas/ventas-por-hora` | 24 filas: `[{hora, cantidad, total}]` |
+| GET | `/estadisticas/mas-vendidos` | `&limite=10` (máx. 50) `&orden=unidades|importe`: `[{productoId, sku, nombre, tipo, unidades, total, ganancia}]` |
+
+Resumen:
+```json
+{
+  "periodo": { "tipo": "dia", "desde": "…", "hasta": "…" },
+  "ventas": { "cantidad": 3, "total": "98900.00", "costo": "59340.00", "ganancia": "39560.00",
+              "margen": 40, "ticketPromedio": "32966.67", "anuladas": 0, "renglonesSinCosto": 0 },
+  "porMetodo": [ { "metodo": "EFECTIVO", "monto": "34700.00", "cantidad": 2, "porcentaje": 35.09 }, … ],
+  "compras": { "cantidad": 1, "total": "112800.00" },
+  "gastos": { "cantidad": 1, "total": "8000.00" },
+  "gananciaNeta": "31560.00",
+  "efectivoNeto": "26700.00",
+  "anterior": { "total": "0.00", "ganancia": "0.00", "variacionTotal": null, "variacionGanancia": null }
+}
+```
+- `margen` = ganancia / vendido (%). `gananciaNeta` = ganancia − gastos de caja.
+- `efectivoNeto` = cobrado en efectivo − gastos pagados en efectivo (lo que debería haber en caja).
+- `anterior` compara con el mismo tramo del período previo (ej. hoy hasta esta hora contra ayer hasta la misma hora).
+  `variacion*` es `null` si el período anterior no tuvo ventas.
+- Si `renglonesSinCosto > 0`, algunos productos vendidos no tienen costo cargado y la ganancia es aproximada.
+- Las compras de mercadería se informan aparte y **no** se restan de la ganancia (la ganancia ya descuenta
+  el costo de lo vendido).
