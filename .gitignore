@@ -1,0 +1,29 @@
+# Secretos y configuración local
+.env
+*.local.env
+
+# Datos reales de la clienta (no van al repo)
+legacy/*_backup.sql
+*.db
+*.sqlite
+
+# Go
+backend/bin/
+backend/tmp/
+*.exe
+coverage.out
+
+# Angular / Node
+frontend/node_modules/
+frontend/dist/
+frontend/.angular/
+
+# Wails
+desktop/build/bin/
+
+# Editor / SO
+.vscode/*
+!.vscode/extensions.json
+.idea/
+.DS_Store
+Thumbs.db
