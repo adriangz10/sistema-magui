@@ -35,7 +35,7 @@ describe('Paginador', () => {
 describe('InputDinero', () => {
   @Component({
     imports: [InputDineroComponent, ReactiveFormsModule],
-    template: `<app-input-dinero id="precio" [formControl]="control" />`,
+    template: `<app-input-dinero idCampo="precio" [formControl]="control" />`,
   })
   class Anfitrion {
     control = new FormControl<string | null>('59200.5');
@@ -46,6 +46,9 @@ describe('InputDinero', () => {
     await f.whenStable();
     const input = (f.nativeElement as HTMLElement).querySelector('input')!;
     expect(input.value).toBe('59.200,50');
+    // el id va solo en el campo interno (si se repite, la etiqueta no queda conectada)
+    expect((f.nativeElement as HTMLElement).querySelectorAll('#precio')).toHaveLength(1);
+    expect(input.id).toBe('precio');
 
     input.value = '1.500,5';
     input.dispatchEvent(new Event('input'));

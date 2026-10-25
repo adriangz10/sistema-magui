@@ -9,7 +9,7 @@ import { ToastService } from '../../core/ui/toast.service';
 import { DineroPipe, deCentavos } from '../../shared/formato/dinero';
 import { EncabezadoComponent } from '../../shared/ui/encabezado.component';
 import { ModalComponent } from '../../shared/ui/modal.component';
-import { BuscadorProductoComponent } from './buscador-producto.component';
+import { BuscadorProductoComponent } from '../../shared/ui/buscador-producto.component';
 import { CarritoService } from './carrito.service';
 import { ListaCarritoComponent } from './lista-carrito.component';
 import { PanelCobroComponent } from './panel-cobro.component';

@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, inject, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { firstValueFrom } from 'rxjs';
 import { ApiError } from '../../core/api/api-error';
@@ -22,7 +22,12 @@ const NOMBRE_METODO: Record<MetodoPago, string> = { EFECTIVO: 'Efectivo', TRANSF
   template: `
     <app-encabezado titulo="Ventas" descripcion="Todas las ventas registradas, de la más reciente a la más vieja" />
 
-    <form class="card mb-4 grid gap-3 p-4 sm:grid-cols-2 lg:grid-cols-[repeat(4,minmax(0,1fr))_auto]" (submit)="$event.preventDefault()">
+    <button type="button" class="btn-secundario mb-3 w-full lg:hidden" (click)="filtrosAbiertos.set(!filtrosAbiertos())"
+            [attr.aria-expanded]="filtrosAbiertos()" aria-controls="filtros-ventas">
+      {{ filtrosAbiertos() ? 'Ocultar filtros' : 'Filtros' }}{{ filtrosActivos() ? ' (' + filtrosActivos() + ')' : '' }}
+    </button>
+    <form id="filtros-ventas" class="card mb-4 gap-3 p-4 sm:grid-cols-2 lg:grid lg:grid-cols-[repeat(4,minmax(0,1fr))_auto]"
+          [class]="filtrosAbiertos() ? 'grid' : 'hidden'" (submit)="$event.preventDefault()">
       <app-campo etiqueta="Desde" para="f-desde">
         <input id="f-desde" type="date" class="input" [ngModel]="filtro().desde" (ngModelChange)="filtrar({ desde: $event })" name="desde" />
       </app-campo>
@@ -166,6 +171,11 @@ export class VentasPage {
     { desde: '', hasta: '', estado: '', metodo: '', page: 1 });
   protected readonly pagina = signal<Pagina<VentaResumen> | null>(null);
   protected readonly cargando = signal(false);
+  protected readonly filtrosAbiertos = signal(false);
+  protected readonly filtrosActivos = computed(() => {
+    const f = this.filtro();
+    return [f.desde, f.hasta, f.estado, f.metodo].filter(Boolean).length;
+  });
   protected readonly detalle = signal<VentaDetalle | null>(null);
   protected readonly anulando = signal(false);
   protected readonly procesando = signal(false);

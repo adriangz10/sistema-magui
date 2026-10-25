@@ -1,13 +1,13 @@
-import { ChangeDetectionStrategy, Component, ElementRef, inject, output, signal, viewChild } from '@angular/core';
+import { ChangeDetectionStrategy, Component, ElementRef, inject, input, output, signal, viewChild } from '@angular/core';
 import { HttpErrorResponse } from '@angular/common/http';
 import { firstValueFrom } from 'rxjs';
 import { LoaderCircle, LucideAngularModule, ScanBarcode } from 'lucide-angular';
-import { CatalogoApi, ProductoResumen } from '../../core/api/catalogo.api';
+import { CatalogoApi, ProductoResumen, TipoProducto } from '../../core/api/catalogo.api';
 import { ToastService } from '../../core/ui/toast.service';
 import { DineroPipe } from '../../shared/formato/dinero';
 
 /**
- * Buscador del punto de venta. Sirve para el lector de códigos (escribe el código y Enter)
+ * Buscador de productos (punto de venta, armado de combos, compras). Sirve para el lector de códigos (escribe el código y Enter)
  * y para buscar por nombre, SKU o código con sugerencias mientras se escribe.
  */
 @Component({
@@ -16,14 +16,14 @@ import { DineroPipe } from '../../shared/formato/dinero';
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: { class: 'relative block' },
   template: `
-    <label for="buscador" class="sr-only">Buscar producto</label>
+    <label [for]="idCampo()" class="sr-only">{{ etiqueta() }}</label>
     <div class="relative">
       <lucide-icon [img]="iconos.escanear" [size]="20" class="pointer-events-none absolute top-1/2 left-3 -translate-y-1/2 text-ink-400" aria-hidden="true" />
-      <input #campo id="buscador" type="search" autocomplete="off" spellcheck="false"
-             class="input h-12 pr-10 pl-10 text-base"
-             placeholder="Escaneá o buscá por nombre, SKU o código (F2)"
-             role="combobox" aria-autocomplete="list" aria-controls="sugerencias"
-             [attr.aria-expanded]="abierto()" [attr.aria-activedescendant]="activa() >= 0 ? 'sugerencia-' + activa() : null"
+      <input #campo [id]="idCampo()" type="search" autocomplete="off" spellcheck="false"
+             class="input pr-10 pl-10" [class]="compacto() ? '' : 'h-12 text-base'"
+             [placeholder]="placeholder()"
+             role="combobox" aria-autocomplete="list" [attr.aria-controls]="idCampo() + '-sugerencias'"
+             [attr.aria-expanded]="abierto()" [attr.aria-activedescendant]="activa() >= 0 ? idCampo() + '-sug-' + activa() : null"
              [value]="texto()" (input)="alEscribir($any($event.target).value)" (keydown)="teclas($event)"
              (blur)="cerrarLuego()" />
       @if (buscando()) {
@@ -32,10 +32,10 @@ import { DineroPipe } from '../../shared/formato/dinero';
     </div>
 
     @if (abierto()) {
-      <ul id="sugerencias" role="listbox" aria-label="Productos encontrados"
+      <ul [id]="idCampo() + '-sugerencias'" role="listbox" aria-label="Productos encontrados"
           class="absolute inset-x-0 top-full z-20 mt-1 max-h-96 overflow-y-auto rounded-xl border border-ink-200 bg-white py-1 shadow-xl dark:border-ink-700 dark:bg-ink-900">
         @for (p of sugerencias(); track p.id; let i = $index) {
-          <li [id]="'sugerencia-' + i" role="option" [attr.aria-selected]="i === activa()"
+          <li [id]="idCampo() + '-sug-' + i" role="option" [attr.aria-selected]="i === activa()"
               class="flex cursor-pointer items-center gap-3 px-3 py-2.5"
               [class]="i === activa() ? 'bg-brand-50 dark:bg-brand-950' : 'hover:bg-ink-50 dark:hover:bg-ink-800'"
               (mousedown)="$event.preventDefault(); elegir(p)">
@@ -59,6 +59,12 @@ import { DineroPipe } from '../../shared/formato/dinero';
   `,
 })
 export class BuscadorProductoComponent {
+  readonly idCampo = input('buscador');
+  readonly etiqueta = input('Buscar producto');
+  readonly placeholder = input('Escaneá o buscá por nombre, SKU o código (F2)');
+  readonly compacto = input(false);
+  /** Limita a un tipo (ej. solo SIMPLE para armar combos o cargar compras). */
+  readonly tipo = input<TipoProducto | ''>('');
   readonly elegido = output<ProductoResumen>();
 
   private readonly api = inject(CatalogoApi);
@@ -93,7 +99,7 @@ export class BuscadorProductoComponent {
     const n = ++this.consulta;
     this.buscando.set(true);
     try {
-      const pag = await firstValueFrom(this.api.listarProductos({ q, size: 8, estado: 'activos' }));
+      const pag = await firstValueFrom(this.api.listarProductos({ q, size: 8, estado: 'activos', tipo: this.tipo() }));
       if (n === this.consulta) {
         this.sugerencias.set(pag.items);
         this.activa.set(pag.items.length ? 0 : -1);
@@ -141,6 +147,10 @@ export class BuscadorProductoComponent {
       const p = await firstValueFrom(this.api.porCodigo(t));
       if (!p.activo) {
         this.toast.error(`${p.nombre} está desactivado`);
+        return;
+      }
+      if (this.tipo() && p.tipo !== this.tipo()) {
+        this.toast.error(`${p.nombre} es un combo: elegí sus productos por separado`);
         return;
       }
       this.elegir(p);

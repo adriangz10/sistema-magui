@@ -6,7 +6,9 @@ import { formatearNumero, interpretarDinero } from '../formato/dinero';
  * Campo de monto en pesos. Muestra "59.200,50" y entrega al formulario "59200.50"
  * (el formato de la API), o null si está vacío o es inválido.
  *
- *   <app-input-dinero id="precio" formControlName="precioVenta" />
+ *   <app-input-dinero idCampo="precio" formControlName="precioVenta" />
+ *
+ * (Se llama idCampo y no id para no repetir el id en el componente y en el campo interno.)
  */
 @Component({
   selector: 'app-input-dinero',
@@ -16,14 +18,14 @@ import { formatearNumero, interpretarDinero } from '../formato/dinero';
     <div class="relative">
       <span class="pointer-events-none absolute inset-y-0 left-3 flex items-center text-sm text-ink-400" aria-hidden="true">$</span>
       <input type="text" inputmode="decimal" autocomplete="off" class="input pl-7 text-right tabular-nums"
-             [id]="id()" [placeholder]="placeholder()" [disabled]="deshabilitado()" [value]="texto()"
+             [id]="idCampo()" [placeholder]="placeholder()" [disabled]="deshabilitado()" [value]="texto()"
              [attr.aria-invalid]="invalido() || null" [attr.aria-describedby]="describedBy() || null"
              (input)="alEscribir($any($event.target).value)" (blur)="alSalir()" (focus)="$any($event.target).select()" />
     </div>
   `,
 })
 export class InputDineroComponent implements ControlValueAccessor {
-  readonly id = input<string>('');
+  readonly idCampo = input<string>('');
   readonly placeholder = input('0,00');
   readonly invalido = input(false);
   readonly describedBy = input<string>('');

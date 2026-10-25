@@ -47,7 +47,7 @@ const BILLETES = [1000, 2000, 10000, 20000];
                   </button>
                 </div>
               </div>
-              <app-input-dinero [id]="'pago-' + i" [ngModel]="p.monto" (ngModelChange)="carrito.cambiarMonto(i, $event)" />
+              <app-input-dinero [idCampo]="'pago-' + i" [ngModel]="p.monto" (ngModelChange)="carrito.cambiarMonto(i, $event)" />
               @if (p.metodo === 'EFECTIVO') {
                 <div class="mt-2 flex flex-wrap gap-1">
                   @for (b of billetes; track b) {

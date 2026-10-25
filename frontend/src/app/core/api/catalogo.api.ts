@@ -1,6 +1,6 @@
 import { HttpClient } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
-import { Observable } from 'rxjs';
+import { Observable, firstValueFrom } from 'rxjs';
 import { API_BASE_URL } from '../config/api.config';
 import { Monto, Pagina, parametros } from './modelos';
 
@@ -171,6 +171,19 @@ export class CatalogoApi {
 
   empresas(c: { q?: string; activas?: boolean; page?: number } = {}): Observable<Pagina<Empresa>> {
     return this.http.get<Pagina<Empresa>>(`${this.base}/empresas`, { params: parametros({ ...c }) });
+  }
+
+  /** Todas las empresas (recorre las páginas; son pocas). Para selects. */
+  async todasLasEmpresas(soloActivas = false): Promise<Empresa[]> {
+    const out: Empresa[] = [];
+    for (let page = 1; page <= 50; page++) {
+      const p = await firstValueFrom(this.empresas({ activas: soloActivas, page }));
+      out.push(...p.items);
+      if (page >= p.totalPages) {
+        break;
+      }
+    }
+    return out;
   }
 
   crearEmpresa(nombre: string): Observable<Empresa> {
