@@ -86,7 +86,8 @@ const consultaResumen = `
 	       (SELECT COALESCE(SUM(i.cantidad), 0) FROM venta_item i WHERE i.venta_id = v.id),
 	       (SELECT GROUP_CONCAT(DISTINCT p.metodo ORDER BY p.metodo) FROM venta_pago p WHERE p.venta_id = v.id),
 	       v.costo_total, v.anulada_en, v.motivo_anulacion,
-	       (SELECT COALESCE(SUM(p.vuelto), 0) FROM venta_pago p WHERE p.venta_id = v.id)
+	       (SELECT COALESCE(SUM(p.vuelto), 0) FROM venta_pago p WHERE p.venta_id = v.id),
+	       NOT EXISTS (SELECT 1 FROM venta_item i WHERE i.venta_id = v.id AND i.costo_unitario IS NULL)
 	FROM venta v`
 
 func scanDetalle(s interface{ Scan(...any) error }) (application.VentaDetalle, error) {
@@ -94,7 +95,7 @@ func scanDetalle(s interface{ Scan(...any) error }) (application.VentaDetalle, e
 	var estado, origen string
 	var metodos sql.NullString
 	err := s.Scan(&d.ID, &d.Fecha, &d.Total, &estado, &origen, &d.Productos, &d.Unidades, &metodos,
-		&d.CostoTotal, &d.AnuladaEn, &d.MotivoAnulacion, &d.Vuelto)
+		&d.CostoTotal, &d.AnuladaEn, &d.MotivoAnulacion, &d.Vuelto, &d.CostoCompleto)
 	d.Estado, d.Origen = domain.Estado(estado), domain.Origen(origen)
 	d.Metodos = []domain.MetodoPago{}
 	if metodos.Valid {

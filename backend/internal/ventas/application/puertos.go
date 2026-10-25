@@ -97,8 +97,10 @@ type PagoDTO struct {
 
 type VentaDetalle struct {
 	VentaResumen
-	CostoTotal      dinero.Dinero `json:"costoTotal"`
-	Ganancia        dinero.Dinero `json:"ganancia"`
+	CostoTotal dinero.Dinero `json:"costoTotal"`
+	Ganancia   dinero.Dinero `json:"ganancia"`
+	// CostoCompleto es false si algún producto vendido no tenía costo: la ganancia es aproximada.
+	CostoCompleto   bool          `json:"costoCompleto"`
 	Vuelto          dinero.Dinero `json:"vuelto"`
 	AnuladaEn       *time.Time    `json:"anuladaEn"`
 	MotivoAnulacion *string       `json:"motivoAnulacion"`

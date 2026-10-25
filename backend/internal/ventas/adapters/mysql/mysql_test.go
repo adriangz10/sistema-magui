@@ -113,7 +113,7 @@ func TestVentasMySQL(t *testing.T) {
 		Items: []venapp.LineaCmd{{ProductoID: kaiak.ID, Cantidad: 3}},
 		Pagos: []vendomain.PagoIngresado{pago(vendomain.Transferencia, "100000"), pago(vendomain.Efectivo, "80000")},
 	}))
-	if v1.Total.String() != "177600.00" || v1.CostoTotal.String() != "86000.00" || v1.Ganancia.String() != "91600.00" {
+	if v1.Total.String() != "177600.00" || v1.CostoTotal.String() != "86000.00" || v1.Ganancia.String() != "91600.00" || !v1.CostoCompleto {
 		t.Errorf("venta 1: total %s costo %s ganancia %s", v1.Total, v1.CostoTotal, v1.Ganancia)
 	}
 	if len(v1.Pagos) != 2 || v1.Vuelto.String() != "2400.00" || v1.Pagos[1].MontoRecibido.String() != "80000.00" {

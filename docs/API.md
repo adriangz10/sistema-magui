@@ -159,7 +159,8 @@ igual lo tiene, se reenvía con `"permitirSinStock": true` (el stock queda negat
 Los combos descuentan el stock de sus componentes.
 
 **Ganancia:** `costoTotal` sale del costo de los lotes vendidos (o del último costo del producto si el lote no
-lo tiene). `ganancia = total − costoTotal`.
+lo tiene). `ganancia = total − costoTotal`. Si algún producto no tenía costo, `costoCompleto` es `false` y la
+ganancia es aproximada (mayor que la real).
 
 ## Caja (gastos y retiros)
 

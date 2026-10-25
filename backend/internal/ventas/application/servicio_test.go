@@ -36,9 +36,9 @@ func (r *repoMem) Detalle(_ context.Context, id string) (VentaDetalle, error) {
 	if !ok {
 		return VentaDetalle{}, domain.ErrVentaNoEncontrada
 	}
-	costo, _ := v.CostoTotal()
+	costo, completo := v.CostoTotal()
 	return VentaDetalle{VentaResumen: VentaResumen{ID: v.ID, Total: v.Total, Estado: v.Estado},
-		CostoTotal: costo, Ganancia: v.Total.Restar(costo)}, nil
+		CostoTotal: costo, Ganancia: v.Total.Restar(costo), CostoCompleto: completo}, nil
 }
 func (r *repoMem) Listar(context.Context, Filtro, paginacion.Solicitud) ([]VentaResumen, int, error) {
 	return nil, len(r.ventas), nil
