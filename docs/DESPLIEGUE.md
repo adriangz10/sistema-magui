@@ -6,7 +6,7 @@ Caddy**, que pide y renueva solo el certificado HTTPS de Let's Encrypt. Archivos
 | Archivo | Para qué |
 |---|---|
 | `Dockerfile` | Imagen de la API: compila la app web y los binarios Go; imagen mínima sin shell, usuario sin privilegios |
-| `docker-compose.prod.yml` | Los tres servicios, redes y volúmenes |
+| `docker-compose.prod.yml` | Los servicios (MySQL, API, Caddy y backup), redes y volúmenes |
 | `Caddyfile` | HTTPS automático para `DOMINIO` |
 | `backup.sh` | Copia diaria de la base (lo corre el servicio `backup`) |
 | `restaurar.sh` | Vuelve la base a una copia |
@@ -108,8 +108,9 @@ volver atrás), detiene la API, restaura y la vuelve a levantar. Pide escribir `
 deploy/restaurar.sh deploy/backups/magui-20261026-030000.sql.gz
 ```
 
-Sin argumentos muestra las copias disponibles. Las ventas hechas en la app de escritorio que todavía no se
-habían subido se suben solas después (no se pierden).
+Sin argumentos muestra las copias disponibles. Todo lo que se cargó **después** de esa copia se pierde (ventas,
+compras, cambios de precio), incluidas las ventas del escritorio que ya se habían subido. Las del escritorio
+que todavía estaban pendientes se suben solas después.
 
 ## Comandos útiles
 
