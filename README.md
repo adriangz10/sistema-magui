@@ -12,7 +12,7 @@ para una revendedora de cosmética (Natura, Avon, …). Web, móvil (PWA) y escr
 ```
 backend/    API Go (arquitectura hexagonal, un paquete por módulo en internal/)
 frontend/   Angular 21 + Tailwind 4 (web, PWA y UI del escritorio)
-desktop/    App de escritorio Wails con SQLite y sincronización (Fase 10)
+desktop/    App de escritorio Wails (usa el núcleo backend/escritorio; vende sin internet)
 deploy/     docker-compose e infraestructura
 docs/       Plan, convenciones y decisiones
 legacy/     Esquema y script de la primera importación del Excel
@@ -110,17 +110,34 @@ compilada, no con `npm start`.
 *Configuración → App en este dispositivo*. En iPhone: Safari → *Compartir* → *Agregar a inicio*.
 Requiere HTTPS en producción (Fase 11).
 
-### 5. Escritorio (núcleo, en el navegador)
+### 5. Escritorio (Windows)
 
-Mientras se arma la app instalable (Wails), el núcleo del escritorio se prueba en el navegador. Con la API
-corriendo y el frontend compilado, desde `backend/`:
+App de escritorio con Wails: la misma pantalla que la web, pero **Vender cobra aunque no haya internet** y las
+ventas se suben solas cuando vuelve la conexión (arriba se ve "N ventas pendientes de subir").
+
+Compilar `desktop/build/bin/Magui.exe` (compila también el frontend con `npm run build:escritorio`), desde `desktop/`:
 
 ```bash
-go run ./cmd/escritorio -servidor http://localhost:8080 -frontend ../frontend/dist/frontend/browser
+wails build -clean -skipbindings
 ```
 
-Abrir http://localhost:4300 e ingresar. Si se corta la API, Vender sigue cobrando; al volver, las ventas se suben
-solas (estado en `/api/escritorio/estado`). La base local queda en `escritorio.db` (`-datos` para otra ruta).
+Para la clienta, con la dirección del servidor de producción ya puesta:
+
+```bash
+wails build -clean -skipbindings -ldflags "-X main.servidorPorDefecto=https://magui.ejemplo.com"
+```
+
+Los datos quedan en `%APPDATA%\Magui`: `config.json` (dirección del servidor, se puede editar), `magui.db`
+(copia del catálogo y ventas por subir) y `magui.log`. La primera vez hay que ingresar con conexión.
+
+Para probar el núcleo en el navegador (sin Wails), con la API corriendo y desde `backend/`:
+
+```bash
+go run ./cmd/escritorio -servidor http://localhost:8080 -frontend ../desktop/web/browser
+```
+
+Abre http://localhost:4300; cortar la API simula quedarse sin internet. `wails build -tags pruebas` arma una
+versión que anota cada pedido de la ventana en `magui.log` (y `MAGUI_DATOS` cambia la carpeta de datos).
 
 ## Estado
 
@@ -136,5 +153,5 @@ solas (estado en `/api/escritorio/estado`). La base local queda en `escritorio.d
 | 7 | Frontend base (ingreso, menú, componentes, modo oscuro) | ✅ |
 | 8 | Pantallas: vender, ventas, productos, categorías, inventario, compras, caja, inicio, estadísticas, configuración | ✅ |
 | 9 | App instalable en el celular (PWA) | ✅ |
-| 10 | Escritorio offline (partes 1 y 2 ✅: sincronización y núcleo; falta la app Wails) | ⏳ |
+| 10 | Escritorio offline (Wails, vende sin internet y sincroniza) | ✅ |
 | 11 | Despliegue | ⏳ |

@@ -83,6 +83,10 @@ internal/<modulo>/
 - Montos: la API usa texto `"59200.50"`; para sumar en pantalla convertir a centavos (`aCentavos`) y nunca usar `number` con decimales.
 - Fechas y horas siempre en hora de Argentina y formato de 24 h (`fecha` pipe).
 - Gráficos: una sola serie con el rosa de marca validado para contraste (`brand-600` en claro, `brand-500` en oscuro), sin leyenda, eje Y redondeado, máximo rotulado, tooltip con mouse y teclado y siempre "Ver como tabla".
+- Escritorio: `core/config/plataforma.ts` exporta `ES_ESCRITORIO` (true solo con `npm run build:escritorio`, que
+  reemplaza el archivo). Ahí no hay service worker, las ventas salen como DESKTOP, `EscritorioService` muestra las
+  ventas pendientes de subir y el indicador de conexión lo informa el núcleo local (`/api/escritorio/estado`).
+  La app de Wails (`desktop/`) es otro módulo de Go: usa el paquete público `backend/escritorio`.
 - PWA: `ngsw-config.json` guarda la app completa y, sin conexión, responde desde la copia solo las consultas
   de catálogo (productos, categorías, empresas). Si se agrega otra consulta a esa lista, sumarla también a
   `DESDE_COPIA` en `core/red/conexion.interceptor.ts` (para que no cuente como "hay conexión").

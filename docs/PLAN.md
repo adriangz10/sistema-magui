@@ -127,7 +127,7 @@ Partes de la Fase 10:
   reglas de pago, proceso de sincronización con reintentos y un handler local que atiende la venta sin conexión y
   reenvía el resto al servidor. ✅ (`internal/escritorio`, `cmd/escritorio`)
 - **Parte 3 — app Wails y pantallas:** proyecto `desktop/`, indicador de ventas pendientes, aviso "necesita
-  internet" en las pantallas que no funcionan sin conexión, prueba real cortando la red.
+  internet" en las pantallas que no funcionan sin conexión, prueba real cortando la red. ✅
 
 Web y móvil trabajan online contra la API. Opcional en una fase posterior: la PWA puede cachear el catálogo para consultar precios sin señal.
 

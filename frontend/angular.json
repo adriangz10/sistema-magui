@@ -57,6 +57,16 @@
               "optimization": false,
               "extractLicenses": false,
               "sourceMap": true
+            },
+            "escritorio": {
+              "outputPath": "../desktop/web",
+              "serviceWorker": false,
+              "fileReplacements": [
+                {
+                  "replace": "src/app/core/config/plataforma.ts",
+                  "with": "src/app/core/config/plataforma.escritorio.ts"
+                }
+              ]
             }
           },
           "defaultConfiguration": "production"

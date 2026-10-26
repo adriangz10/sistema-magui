@@ -4,6 +4,9 @@ import { CircleCheck, LucideAngularModule } from 'lucide-angular';
 import { ApiError } from '../../core/api/api-error';
 import { ProductoResumen } from '../../core/api/catalogo.api';
 import { OrigenVenta, VentaDetalle, VentasApi } from '../../core/api/ventas.api';
+import { ES_ESCRITORIO } from '../../core/config/plataforma';
+import { EscritorioService } from '../../core/escritorio/escritorio.service';
+import { ConexionService } from '../../core/red/conexion.service';
 import { ConfirmacionService } from '../../core/ui/confirmacion.service';
 import { ToastService } from '../../core/ui/toast.service';
 import { DineroPipe, deCentavos } from '../../shared/formato/dinero';
@@ -68,6 +71,9 @@ import { PanelCobroComponent } from './panel-cobro.component';
             </div>
           }
           <p class="mt-4 text-sm text-ink-500">{{ v.unidades }} {{ v.unidades === 1 ? 'unidad' : 'unidades' }} · {{ metodos(v) }}</p>
+          @if (escritorio.activo && !conexion.enLinea()) {
+            <p class="mt-2 text-sm text-warn dark:text-amber-300">Guardada en esta PC: se sube sola cuando vuelva internet.</p>
+          }
         </div>
       }
       <div pie>
@@ -81,6 +87,8 @@ export class VenderPage {
   private readonly api = inject(VentasApi);
   private readonly toast = inject(ToastService);
   private readonly confirmacion = inject(ConfirmacionService);
+  protected readonly escritorio = inject(EscritorioService);
+  protected readonly conexion = inject(ConexionService);
   private readonly buscador = viewChild.required(BuscadorProductoComponent);
 
   protected readonly cobrando = signal(false);
@@ -127,6 +135,7 @@ export class VenderPage {
       }));
       this.carrito.vaciar();
       this.ultimaVenta.set(venta);
+      void this.escritorio.actualizar(); // contador de ventas por subir
     } catch (e) {
       const err = ApiError.desde(e);
       this.cobrando.set(false);
@@ -166,7 +175,10 @@ export class VenderPage {
   }
 }
 
-/** En pantallas táctiles (celular) la venta queda marcada como MOVIL. */
+/** En pantallas táctiles (celular) la venta queda marcada como MOVIL; en el escritorio, DESKTOP. */
 function origenDispositivo(): OrigenVenta {
+  if (ES_ESCRITORIO) {
+    return 'DESKTOP';
+  }
   return globalThis.matchMedia?.('(pointer: coarse)').matches ? 'MOVIL' : 'WEB';
 }

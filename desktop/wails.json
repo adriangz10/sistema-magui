@@ -1,0 +1,22 @@
+{
+  "$schema": "https://wails.io/schemas/config.v2.json",
+  "name": "Magui",
+  "outputfilename": "Magui",
+  "frontend:dir": "../frontend",
+  "frontend:install": "npm install",
+  "frontend:build": "npm run build:escritorio",
+  "frontend:dev:watcher": "",
+  "frontend:dev:serverUrl": "",
+  "wailsjsdir": "./wailsjs",
+  "author": {
+    "name": "adriangz10",
+    "email": ""
+  },
+  "info": {
+    "companyName": "Magui",
+    "productName": "Magui",
+    "productVersion": "0.10.0",
+    "copyright": "Magui",
+    "comments": "Punto de venta con control de stock"
+  }
+}

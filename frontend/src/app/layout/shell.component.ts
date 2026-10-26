@@ -2,8 +2,9 @@ import { ChangeDetectionStrategy, Component, inject, signal } from '@angular/cor
 import { NavigationEnd, Router, RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { filter } from 'rxjs';
-import { Ellipsis, LogOut, LucideAngularModule, Moon, Sun, Wifi, WifiOff, X } from 'lucide-angular';
+import { CloudUpload, Ellipsis, LogOut, LucideAngularModule, Moon, Sun, TriangleAlert, Wifi, WifiOff, X } from 'lucide-angular';
 import { AuthService } from '../core/auth/auth.service';
+import { EscritorioService } from '../core/escritorio/escritorio.service';
 import { ConexionService } from '../core/red/conexion.service';
 import { ConfirmacionService } from '../core/ui/confirmacion.service';
 import { TemaService } from '../core/ui/tema.service';
@@ -54,6 +55,13 @@ import { MENU } from './navegacion';
             <span class="font-semibold">Magui</span>
           </div>
           <div class="flex-1"></div>
+          @if (escritorio.pendientes() > 0) {
+            <span class="flex items-center gap-1.5 rounded-full bg-ink-100 px-2.5 py-1 text-xs font-medium text-ink-700 dark:bg-ink-800 dark:text-ink-200"
+                  role="status" [attr.title]="'Ventas cobradas en esta PC que todavía no llegaron al servidor'">
+              <lucide-icon [img]="iconos.subir" [size]="14" aria-hidden="true" />
+              {{ escritorio.pendientes() }} {{ escritorio.pendientes() === 1 ? 'venta pendiente' : 'ventas pendientes' }} de subir
+            </span>
+          }
           <span class="flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium"
                 [class]="conexion.enLinea() ? 'bg-green-50 text-ok dark:bg-green-950 dark:text-green-300' : 'bg-amber-50 text-warn dark:bg-amber-950 dark:text-amber-300'"
                 role="status">
@@ -68,7 +76,21 @@ import { MENU } from './navegacion';
 
         @if (!conexion.enLinea()) {
           <div class="border-b border-amber-200 bg-amber-50 px-4 py-2 text-center text-sm text-warn lg:px-8 dark:border-amber-900 dark:bg-amber-950 dark:text-amber-300" role="status">
-            Sin conexión: podés consultar productos y precios, pero para vender o registrar cambios hace falta internet.
+            @if (escritorio.activo) {
+              Sin conexión: podés seguir vendiendo; las ventas se suben solas cuando vuelva internet. El resto de las pantallas necesita conexión.
+            } @else {
+              Sin conexión: podés consultar productos y precios, pero para vender o registrar cambios hace falta internet.
+            }
+          </div>
+        }
+        @if (escritorio.rechazadas() > 0) {
+          <div class="flex items-center justify-center gap-2 border-b border-red-200 bg-red-50 px-4 py-2 text-sm text-danger lg:px-8 dark:border-red-900 dark:bg-red-950 dark:text-red-300" role="alert">
+            <lucide-icon [img]="iconos.alerta" [size]="16" aria-hidden="true" />
+            El servidor no aceptó {{ escritorio.rechazadas() === 1 ? '1 venta cobrada' : escritorio.rechazadas() + ' ventas cobradas' }} en esta PC. Revisalas con soporte.
+          </div>
+        } @else if (escritorio.necesitaIngresar() && escritorio.pendientes() > 0) {
+          <div class="border-b border-amber-200 bg-amber-50 px-4 py-2 text-center text-sm text-warn lg:px-8 dark:border-amber-900 dark:bg-amber-950 dark:text-amber-300" role="status">
+            Para subir las ventas pendientes, salí e ingresá de nuevo con conexión.
           </div>
         }
         <main id="contenido" class="mx-auto w-full max-w-7xl flex-1 px-4 pt-6 pb-24 lg:px-8 lg:pb-10" tabindex="-1">
@@ -123,6 +145,7 @@ import { MENU } from './navegacion';
 })
 export class ShellComponent {
   protected readonly conexion = inject(ConexionService);
+  protected readonly escritorio = inject(EscritorioService);
   protected readonly tema = inject(TemaService);
   private readonly auth = inject(AuthService);
   private readonly confirmacion = inject(ConfirmacionService);
@@ -130,7 +153,7 @@ export class ShellComponent {
   protected readonly menu = MENU;
   protected readonly menuMovil = MENU.filter((m) => m.movil);
   protected readonly masAbierto = signal(false);
-  protected readonly iconos = { salir: LogOut, luna: Moon, sol: Sun, enLinea: Wifi, sinConexion: WifiOff, mas: Ellipsis, cerrar: X };
+  protected readonly iconos = { salir: LogOut, luna: Moon, sol: Sun, enLinea: Wifi, sinConexion: WifiOff, mas: Ellipsis, cerrar: X, subir: CloudUpload, alerta: TriangleAlert };
 
   constructor() {
     inject(Router).events.pipe(filter((e) => e instanceof NavigationEnd), takeUntilDestroyed())

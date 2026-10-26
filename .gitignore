@@ -27,3 +27,8 @@ desktop/build/bin/
 .idea/
 .DS_Store
 Thumbs.db
+
+# Escritorio: compilación del frontend y enlaces generados por Wails
+desktop/web/
+desktop/wailsjs/
+frontend/package.json.md5

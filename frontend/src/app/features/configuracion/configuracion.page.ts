@@ -6,6 +6,7 @@ import { ApiError } from '../../core/api/api-error';
 import { InventarioApi } from '../../core/api/inventario.api';
 import { AuthService } from '../../core/auth/auth.service';
 import { API_BASE_URL } from '../../core/config/api.config';
+import { ES_ESCRITORIO } from '../../core/config/plataforma';
 import { InstalacionService } from '../../core/pwa/instalacion.service';
 import { TemaService } from '../../core/ui/tema.service';
 import { ToastService } from '../../core/ui/toast.service';
@@ -42,6 +43,7 @@ import { EncabezadoComponent } from '../../shared/ui/encabezado.component';
       </section>
 
       <div class="space-y-6">
+        @if (!esEscritorio) {
         <section class="card p-5" aria-labelledby="titulo-instalar">
           <h2 id="titulo-instalar" class="font-semibold">App en este dispositivo</h2>
           @if (instalacion.instalada()) {
@@ -55,6 +57,7 @@ import { EncabezadoComponent } from '../../shared/ui/encabezado.component';
             <p class="mt-1 text-sm text-ink-500">Desde el celular, abrí el menú del navegador y elegí <strong>Instalar app</strong> o <strong>Agregar a la pantalla de inicio</strong>.</p>
           }
         </section>
+        }
 
         <section class="card p-5" aria-labelledby="titulo-venc">
           <h2 id="titulo-venc" class="font-semibold">Aviso de vencimientos</h2>
@@ -98,6 +101,8 @@ export class ConfiguracionPage {
   private readonly base = inject(API_BASE_URL);
   protected readonly tema = inject(TemaService);
   protected readonly instalacion = inject(InstalacionService);
+  /** En el escritorio la app ya está instalada: no se ofrece instalar la versión web. */
+  protected readonly esEscritorio = ES_ESCRITORIO;
 
   protected readonly temas = [{ id: 'claro' as const, etiqueta: 'Claro' }, { id: 'oscuro' as const, etiqueta: 'Oscuro' }];
   protected actual = '';
