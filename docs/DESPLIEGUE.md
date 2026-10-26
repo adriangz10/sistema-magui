@@ -8,6 +8,8 @@ Caddy**, que pide y renueva solo el certificado HTTPS de Let's Encrypt. Archivos
 | `Dockerfile` | Imagen de la API: compila la app web y los binarios Go; imagen mínima sin shell, usuario sin privilegios |
 | `docker-compose.prod.yml` | Los tres servicios, redes y volúmenes |
 | `Caddyfile` | HTTPS automático para `DOMINIO` |
+| `backup.sh` | Copia diaria de la base (lo corre el servicio `backup`) |
+| `restaurar.sh` | Vuelve la base a una copia |
 | `.env.prod.example` | Variables a completar (se copia a `.env.prod`, que nunca se sube al repositorio) |
 
 ## Qué hace falta
@@ -70,6 +72,44 @@ docker compose -f deploy/docker-compose.prod.yml --env-file deploy/.env.prod up 
 
 Las migraciones nuevas se aplican solas al arrancar la API. Los datos quedan en los volúmenes de Docker
 (`mysql_data`, y `caddy_data` para los certificados): **nunca usar `down -v`**, borra la base.
+
+## Copias de seguridad
+
+El servicio `backup` hace una copia de la base **todos los días a las 03:00** (hora de Argentina, se cambia con
+`BACKUP_HORA`) y guarda las de los últimos **14 días** (`BACKUP_DIAS`). Al arrancar, si no hay ninguna copia de
+las últimas 24 horas, hace una enseguida. Quedan en `deploy/backups/magui-AAAAMMDD-HHMMSS.sql.gz`.
+
+- La copia se hace sin frenar el sistema (las ventas siguen) y se verifica antes de darla por buena: si se
+  corta a la mitad, se descarta.
+- `docker compose ... ps` muestra el servicio `backup` como **unhealthy** si no hay una copia de las últimas
+  26 horas.
+
+Hacer una copia ya (por ejemplo, antes de actualizar):
+
+```bash
+docker compose -f deploy/docker-compose.prod.yml --env-file deploy/.env.prod exec backup bash /backup.sh ahora
+```
+
+**Guardar copias fuera del VPS.** Si el VPS se pierde, se pierden también sus copias. Bajar una a la PC cada
+tanto (desde la PC):
+
+```bash
+scp usuario@IP_DEL_VPS:magui/deploy/backups/magui-*.sql.gz .
+```
+
+o automatizarlo con un servicio de almacenamiento (por ejemplo `rclone` a Google Drive con un `cron` diario).
+
+### Restaurar una copia
+
+**Reemplaza todos los datos actuales.** El script primero guarda una copia del estado actual (por si hay que
+volver atrás), detiene la API, restaura y la vuelve a levantar. Pide escribir `RESTAURAR` para confirmar:
+
+```bash
+deploy/restaurar.sh deploy/backups/magui-20261026-030000.sql.gz
+```
+
+Sin argumentos muestra las copias disponibles. Las ventas hechas en la app de escritorio que todavía no se
+habían subido se suben solas después (no se pierden).
 
 ## Comandos útiles
 

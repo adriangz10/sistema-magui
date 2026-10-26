@@ -155,4 +155,4 @@ versión que anota cada pedido de la ventana en `magui.log` (y `MAGUI_DATOS` cam
 | 8 | Pantallas: vender, ventas, productos, categorías, inventario, compras, caja, inicio, estadísticas, configuración | ✅ |
 | 9 | App instalable en el celular (PWA) | ✅ |
 | 10 | Escritorio offline (Wails, vende sin internet y sincroniza) | ✅ |
-| 11 | Despliegue (parte 1 ✅: Docker + HTTPS; faltan backups e instalador) | ⏳ |
+| 11 | Despliegue (partes 1 y 2 ✅: Docker + HTTPS y backups; falta el instalador) | ⏳ |
