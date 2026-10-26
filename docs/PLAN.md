@@ -197,7 +197,7 @@ Partes de la Fase 11:
 - **Parte 1 — servidor en Docker:** imagen de la API con la app web, `docker-compose.prod.yml` con MySQL y Caddy
   (HTTPS automático), IP real del cliente detrás del proxy (`TRUSTED_PROXIES`) y guía `docs/DESPLIEGUE.md`. ✅
 - **Parte 2 — backups:** copia diaria de MySQL comprimida, con rotación, y cómo restaurarla (probado). ✅
-- **Parte 3 — instalador del escritorio:** instalador `.exe` (NSIS) con la dirección del servidor y la versión.
+- **Parte 3 — instalador del escritorio:** instalador `.exe` (NSIS) con la dirección del servidor y la versión. ✅
 
 Cada fase termina con: código compilando, tests pasando, un commit y un resumen antes de seguir con la siguiente.
 

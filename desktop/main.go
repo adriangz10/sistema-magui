@@ -37,6 +37,9 @@ var archivos embed.FS
 //	wails build -ldflags "-X main.servidorPorDefecto=https://magui.ejemplo.com"
 var servidorPorDefecto = "http://localhost:8080"
 
+// version se fija al compilar (instalador.ps1): -X main.version=1.0.0
+var version = "dev"
+
 // envolverHandler lo cambia pruebas.go (solo con -tags pruebas) para anotar los pedidos.
 var envolverHandler = func(h http.Handler, _ *slog.Logger) http.Handler { return h }
 
@@ -79,7 +82,7 @@ func main() {
 		defer app.Cerrar()
 		handler = app.Handler
 		go app.Ejecutar(ctx)
-		log.Info("escritorio iniciado", "servidor", cfg.Servidor, "datos", carpeta)
+		log.Info("escritorio iniciado", "version", version, "servidor", cfg.Servidor, "datos", carpeta)
 	}
 
 	var ventana context.Context

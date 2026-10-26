@@ -122,11 +122,18 @@ Compilar `desktop/build/bin/Magui.exe` (compila también el frontend con `npm ru
 wails build -clean -skipbindings
 ```
 
-Para la clienta, con la dirección del servidor de producción ya puesta:
+**Instalador para la clienta** (`desktop/build/bin/Magui-amd64-installer.exe`), con la dirección del servidor de
+producción y la versión. Necesita NSIS (`winget install NSIS.NSIS`). Desde `desktop/`, en PowerShell:
 
-```bash
-wails build -clean -skipbindings -ldflags "-X main.servidorPorDefecto=https://magui.ejemplo.com"
+```powershell
+.\instalador.ps1 -Servidor https://magui.ejemplo.com -Version 1.0.0
 ```
+
+Se instala para el usuario actual, sin pedir permisos de administrador: el programa queda en
+`%LOCALAPPDATA%\Programs\Magui`, con accesos en el menú Inicio y el escritorio. Si Magui está abierto, el
+instalador lo cierra. Para actualizar se corre el instalador nuevo encima. Al desinstalar **no** se borran los
+datos (ventas pendientes de subir, sesión, configuración). Windows puede mostrar el aviso de SmartScreen
+("editor desconocido") porque el instalador no está firmado: *Más información → Ejecutar de todas formas*.
 
 Los datos quedan en `%APPDATA%\Magui`: `config.json` (dirección del servidor, se puede editar), `magui.db`
 (copia del catálogo y ventas por subir) y `magui.log`. La primera vez hay que ingresar con conexión.
@@ -155,4 +162,4 @@ versión que anota cada pedido de la ventana en `magui.log` (y `MAGUI_DATOS` cam
 | 8 | Pantallas: vender, ventas, productos, categorías, inventario, compras, caja, inicio, estadísticas, configuración | ✅ |
 | 9 | App instalable en el celular (PWA) | ✅ |
 | 10 | Escritorio offline (Wails, vende sin internet y sincroniza) | ✅ |
-| 11 | Despliegue (partes 1 y 2 ✅: Docker + HTTPS y backups; falta el instalador) | ⏳ |
+| 11 | Despliegue (Docker + HTTPS, backups, instalador del escritorio) | ✅ |

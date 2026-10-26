@@ -138,8 +138,12 @@ docker compose -f deploy/docker-compose.prod.yml --env-file deploy/.env.prod log
 
 ## App de escritorio
 
-Compilarla apuntando al dominio (ver README, sección Escritorio):
+Con el servidor funcionando, generar el instalador apuntando al dominio (en la PC de desarrollo, desde `desktop/`):
 
-```bash
-wails build -clean -skipbindings -ldflags "-X main.servidorPorDefecto=https://magui.ejemplo.com"
+```powershell
+.\instalador.ps1 -Servidor https://magui.ejemplo.com -Version 1.0.0
 ```
+
+Llevar `desktop/build/bin/Magui-amd64-installer.exe` a la PC de la tienda, instalarlo y abrir Magui. La primera
+vez hay que ingresar con conexión. Si cambia la dirección del servidor, se edita
+`%APPDATA%\Magui\config.json` y se vuelve a abrir la app (o se genera un instalador nuevo).

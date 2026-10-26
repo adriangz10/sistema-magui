@@ -36,3 +36,4 @@ Thumbs.db
 desktop/web/
 desktop/wailsjs/
 frontend/package.json.md5
+desktop/build/windows/installer/tmp/
