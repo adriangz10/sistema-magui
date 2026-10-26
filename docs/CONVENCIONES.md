@@ -43,6 +43,7 @@ internal/<modulo>/
 - Errores: los casos de uso devuelven `errores.Invalido/NoEncontrado/Conflicto/...` con un código estable
   (`stock_insuficiente`). `httpx.Error` los traduce a 422/404/409/401/429; cualquier otro error es 500
   y se registra en el log sin mostrar detalles al usuario.
+- IP del cliente: siempre con `clienteip.De(r)`, nunca `r.RemoteAddr` (detrás de Caddy es la del proxy).
 - Horas: `reloj.Reloj` se inyecta en los servicios (en tests, `reloj.Fijo`). Para agrupar "el día" se
   usa `reloj.ZonaArgentina`.
 - Tests: casos de uso con repositorios en memoria; adaptadores con base real.

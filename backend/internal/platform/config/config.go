@@ -3,22 +3,27 @@ package config
 
 import (
 	"fmt"
+	"net/netip"
 	"os"
 	"strings"
 	"time"
 
 	"github.com/joho/godotenv"
+
+	"magui/internal/platform/clienteip"
 )
 
 // Config agrupa toda la configuración del proceso.
 type Config struct {
-	Env             string // "dev" o "prod"
-	HTTPAddr        string
-	AllowedOrigins  []string
-	FrontendDir     string // carpeta del frontend compilado; vacío = la API no sirve la app web
-	ShutdownTimeout time.Duration
-	DB              DBConfig
-	Auth            AuthConfig
+	Env            string // "dev" o "prod"
+	HTTPAddr       string
+	AllowedOrigins []string
+	FrontendDir    string // carpeta del frontend compilado; vacío = la API no sirve la app web
+	// ProxiesConfiables: IPs o rangos del proxy HTTPS (Caddy). Solo de ellos se acepta X-Forwarded-For.
+	ProxiesConfiables []netip.Prefix
+	ShutdownTimeout   time.Duration
+	DB                DBConfig
+	Auth              AuthConfig
 }
 
 // AuthConfig configura las sesiones de la dueña.
@@ -68,6 +73,12 @@ func Load() (Config, error) {
 	if cfg.Env != "dev" && cfg.Env != "prod" {
 		return Config{}, fmt.Errorf("APP_ENV inválido %q: use dev o prod", cfg.Env)
 	}
+
+	proxies, err := clienteip.ParsearConfiables(get("TRUSTED_PROXIES", ""))
+	if err != nil {
+		return Config{}, fmt.Errorf("TRUSTED_PROXIES: %w", err)
+	}
+	cfg.ProxiesConfiables = proxies
 
 	dur, err := time.ParseDuration(get("SESSION_DURATION", "720h"))
 	if err != nil || dur <= 0 {

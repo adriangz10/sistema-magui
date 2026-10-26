@@ -14,6 +14,7 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	_ "time/tzdata" // zonas horarias dentro del binario (imagen mínima)
 
 	"magui/internal/importacion"
 	"magui/internal/platform/config"

@@ -6,12 +6,14 @@ import (
 	"errors"
 	"log/slog"
 	"net/http"
+	"net/netip"
 	"time"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/go-chi/cors"
 
+	"magui/internal/platform/clienteip"
 	"magui/internal/platform/httpx"
 )
 
@@ -38,12 +40,15 @@ type Options struct {
 	Autenticacion func(http.Handler) http.Handler
 	// Frontend sirve la app web en todo lo que no es /api (opcional).
 	Frontend http.Handler
+	// ProxiesConfiables: de quiénes se acepta X-Forwarded-For para saber la IP del cliente.
+	ProxiesConfiables []netip.Prefix
 }
 
 // NewRouter crea el router con middlewares comunes y monta todo bajo /api.
 func NewRouter(log *slog.Logger, opt Options, modules ...Module) http.Handler {
 	r := chi.NewRouter()
 	r.Use(middleware.RequestID)
+	r.Use(clienteip.Middleware(opt.ProxiesConfiables))
 	r.Use(requestLogger(log))
 	r.Use(middleware.Recoverer)
 	r.Use(cors.Handler(cors.Options{
@@ -107,7 +112,7 @@ func requestLogger(log *slog.Logger) func(http.Handler) http.Handler {
 			next.ServeHTTP(ww, r)
 			log.Info("http",
 				"method", r.Method, "path", r.URL.Path, "status", ww.Status(),
-				"duration_ms", time.Since(start).Milliseconds(),
+				"duration_ms", time.Since(start).Milliseconds(), "ip", clienteip.De(r),
 				"request_id", middleware.GetReqID(r.Context()))
 		})
 	}

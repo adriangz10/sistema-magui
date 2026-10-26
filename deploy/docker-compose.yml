@@ -1,6 +1,6 @@
 # Servicios de infraestructura.
 # Desarrollo:  docker compose -f deploy/docker-compose.yml --env-file deploy/.env up -d
-# La API y el proxy HTTPS se agregan en la Fase 11 (despliegue).
+# Solo MySQL para desarrollo. El sistema completo para el VPS está en docker-compose.prod.yml.
 name: magui
 
 services:

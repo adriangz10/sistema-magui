@@ -6,6 +6,7 @@ para una revendedora de cosmética (Natura, Avon, …). Web, móvil (PWA) y escr
 - Estrategia y plan por fases: [docs/PLAN.md](docs/PLAN.md)
 - Convenciones de código: [docs/CONVENCIONES.md](docs/CONVENCIONES.md)
 - Referencia de la API: [docs/API.md](docs/API.md)
+- Despliegue en un VPS: [docs/DESPLIEGUE.md](docs/DESPLIEGUE.md)
 
 ## Estructura
 
@@ -13,7 +14,7 @@ para una revendedora de cosmética (Natura, Avon, …). Web, móvil (PWA) y escr
 backend/    API Go (arquitectura hexagonal, un paquete por módulo en internal/)
 frontend/   Angular 21 + Tailwind 4 (web, PWA y UI del escritorio)
 desktop/    App de escritorio Wails (usa el núcleo backend/escritorio; vende sin internet)
-deploy/     docker-compose e infraestructura
+deploy/     Docker: MySQL de desarrollo y sistema completo para el VPS (API + MySQL + Caddy)
 docs/       Plan, convenciones y decisiones
 legacy/     Esquema y script de la primera importación del Excel
 ```
@@ -154,4 +155,4 @@ versión que anota cada pedido de la ventana en `magui.log` (y `MAGUI_DATOS` cam
 | 8 | Pantallas: vender, ventas, productos, categorías, inventario, compras, caja, inicio, estadísticas, configuración | ✅ |
 | 9 | App instalable en el celular (PWA) | ✅ |
 | 10 | Escritorio offline (Wails, vende sin internet y sincroniza) | ✅ |
-| 11 | Despliegue | ⏳ |
+| 11 | Despliegue (parte 1 ✅: Docker + HTTPS; faltan backups e instalador) | ⏳ |

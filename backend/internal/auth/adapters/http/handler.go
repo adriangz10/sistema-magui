@@ -3,7 +3,6 @@ package http
 
 import (
 	"log/slog"
-	"net"
 	"net/http"
 	"strings"
 
@@ -11,6 +10,7 @@ import (
 
 	"magui/internal/auth/application"
 	"magui/internal/auth/domain"
+	"magui/internal/platform/clienteip"
 	"magui/internal/platform/httpx"
 )
 
@@ -92,12 +92,6 @@ func (h *Handler) RequerirSesion(next http.Handler) http.Handler {
 	})
 }
 
-// origen identifica al cliente para el limitador de intentos.
-// Usa la IP de la conexión: no confía en X-Forwarded-For (se puede falsificar).
-func origen(r *http.Request) string {
-	host, _, err := net.SplitHostPort(r.RemoteAddr)
-	if err != nil {
-		return r.RemoteAddr
-	}
-	return host
-}
+// origen identifica al cliente para el limitador de intentos: la IP real del cliente.
+// Detrás de Caddy sale de X-Forwarded-For, pero solo si el pedido viene del proxy (ver clienteip).
+func origen(r *http.Request) string { return clienteip.De(r) }

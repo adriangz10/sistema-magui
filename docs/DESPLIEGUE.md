@@ -1,0 +1,104 @@
+# Despliegue en un VPS
+
+El sistema completo corre con Docker en un servidor propio: **MySQL + API (que también sirve la app web) +
+Caddy**, que pide y renueva solo el certificado HTTPS de Let's Encrypt. Archivos en `deploy/`:
+
+| Archivo | Para qué |
+|---|---|
+| `Dockerfile` | Imagen de la API: compila la app web y los binarios Go; imagen mínima sin shell, usuario sin privilegios |
+| `docker-compose.prod.yml` | Los tres servicios, redes y volúmenes |
+| `Caddyfile` | HTTPS automático para `DOMINIO` |
+| `.env.prod.example` | Variables a completar (se copia a `.env.prod`, que nunca se sube al repositorio) |
+
+## Qué hace falta
+
+- Un VPS Linux con 1 GB de RAM o más (ej. Ubuntu 24.04), con los puertos 80 y 443 abiertos.
+- Un dominio o subdominio (ej. `magui.ejemplo.com`) con un **registro A** que apunte a la IP del VPS.
+- Docker con el plugin compose (`curl -fsSL https://get.docker.com | sh`).
+
+## Primera instalación
+
+1. Copiar el repositorio al VPS (por ejemplo con `git clone`) y entrar a la carpeta.
+
+2. Crear la configuración y completarla (dominio, correo y contraseñas largas):
+
+   ```bash
+   cp deploy/.env.prod.example deploy/.env.prod
+   ```
+
+   Para generar cada contraseña y el `AUTH_SECRET`:
+
+   ```bash
+   openssl rand -base64 48
+   ```
+
+   Proteger el archivo:
+
+   ```bash
+   chmod 600 deploy/.env.prod
+   ```
+
+3. Levantar todo (la primera vez compila la imagen; tarda unos minutos):
+
+   ```bash
+   docker compose -f deploy/docker-compose.prod.yml --env-file deploy/.env.prod up -d --build
+   ```
+
+   La API crea el esquema de la base al arrancar. Caddy obtiene el certificado apenas el dominio responde.
+
+4. Cargar el Excel de la clienta (solo la primera vez). Subirlo al VPS, por ejemplo a `~/datos/`, y correr:
+
+   ```bash
+   docker compose -f deploy/docker-compose.prod.yml --env-file deploy/.env.prod run --rm --no-deps -v ~/datos:/datos:ro --entrypoint /app/migrate api -empresa Natura importar-excel "/datos/STOCK VENCIMIENTOS.xlsx"
+   ```
+
+5. Poner la contraseña de la dueña (la pide sin mostrarla):
+
+   ```bash
+   docker compose -f deploy/docker-compose.prod.yml --env-file deploy/.env.prod exec api /app/admin establecer-clave
+   ```
+
+6. Abrir `https://DOMINIO`, ingresar y comprobar. `https://DOMINIO/api/health` debe responder `"status":"ok"`.
+
+## Actualizar a una versión nueva
+
+Bajar los cambios (`git pull`), cambiar `VERSION` en `deploy/.env.prod` y volver a levantar:
+
+```bash
+docker compose -f deploy/docker-compose.prod.yml --env-file deploy/.env.prod up -d --build
+```
+
+Las migraciones nuevas se aplican solas al arrancar la API. Los datos quedan en los volúmenes de Docker
+(`mysql_data`, y `caddy_data` para los certificados): **nunca usar `down -v`**, borra la base.
+
+## Comandos útiles
+
+Estado y salud de los servicios:
+
+```bash
+docker compose -f deploy/docker-compose.prod.yml --env-file deploy/.env.prod ps
+```
+
+Registro de la API (cada pedido con su IP, estado y duración):
+
+```bash
+docker compose -f deploy/docker-compose.prod.yml --env-file deploy/.env.prod logs -f api
+```
+
+## Seguridad
+
+- MySQL no publica puertos y está en una red interna sin salida a internet: solo la API llega a la base.
+- La API no publica puertos: se entra solo por Caddy (HTTPS, con HSTS). HTTP redirige a HTTPS.
+- La imagen de la API no tiene shell y corre con un usuario sin privilegios.
+- Límite de intentos de ingreso por IP: detrás de Caddy, la IP real sale de `X-Forwarded-For`, pero solo se
+  acepta si el pedido viene de Caddy (`TRUSTED_PROXIES`, IP fija `172.30.10.2`). Un cliente no puede esquivar el
+  límite inventando ese encabezado.
+- `AUTH_SECRET` es obligatorio en producción (la API no arranca sin él).
+
+## App de escritorio
+
+Compilarla apuntando al dominio (ver README, sección Escritorio):
+
+```bash
+wails build -clean -skipbindings -ldflags "-X main.servidorPorDefecto=https://magui.ejemplo.com"
+```

@@ -1,0 +1,14 @@
+# Proxy HTTPS: pide y renueva solo el certificado de Let's Encrypt para {$DOMINIO}.
+# Con DOMINIO=localhost usa un certificado local (para probar en la PC).
+{
+	email {$EMAIL_ACME}
+}
+
+{$DOMINIO} {
+	encode zstd gzip
+	header {
+		Strict-Transport-Security "max-age=31536000"
+		-Server
+	}
+	reverse_proxy api:8080
+}

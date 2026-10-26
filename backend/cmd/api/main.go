@@ -4,10 +4,13 @@ package main
 import (
 	"context"
 	"fmt"
+	"net"
 	"net/http"
 	"os"
 	"os/signal"
 	"syscall"
+	"time"
+	_ "time/tzdata" // zonas horarias dentro del binario (la imagen mínima no las trae)
 
 	"magui/internal/auth"
 	"magui/internal/caja"
@@ -28,10 +31,36 @@ import (
 var version = "dev"
 
 func main() {
+	// "api salud": chequeo de salud para Docker (la imagen no trae curl ni wget).
+	if len(os.Args) > 1 && os.Args[1] == "salud" {
+		os.Exit(salud())
+	}
 	if err := run(); err != nil {
 		fmt.Fprintln(os.Stderr, "error:", err)
 		os.Exit(1)
 	}
+}
+
+// salud pide /api/health al propio servidor: 0 si responde bien, 1 si no.
+func salud() int {
+	puerto := "8080"
+	if addr := os.Getenv("HTTP_ADDR"); addr != "" {
+		if _, p, err := net.SplitHostPort(addr); err == nil && p != "" {
+			puerto = p
+		}
+	}
+	c := http.Client{Timeout: 3 * time.Second}
+	res, err := c.Get("http://127.0.0.1:" + puerto + "/api/health")
+	if err != nil {
+		fmt.Fprintln(os.Stderr, "salud:", err)
+		return 1
+	}
+	res.Body.Close()
+	if res.StatusCode != http.StatusOK {
+		fmt.Fprintln(os.Stderr, "salud: estado", res.StatusCode)
+		return 1
+	}
+	return 0
 }
 
 func run() error {
@@ -81,11 +110,12 @@ func run() error {
 	}
 
 	router := httpserver.NewRouter(log, httpserver.Options{
-		AllowedOrigins: cfg.AllowedOrigins,
-		Frontend:       frontend,
-		Version:        version,
-		Checks:         map[string]httpserver.Check{"db": conn.PingContext},
-		Autenticacion:  acceso.Handler.RequerirSesion,
+		AllowedOrigins:    cfg.AllowedOrigins,
+		Frontend:          frontend,
+		ProxiesConfiables: cfg.ProxiesConfiables,
+		Version:           version,
+		Checks:            map[string]httpserver.Check{"db": conn.PingContext},
+		Autenticacion:     acceso.Handler.RequerirSesion,
 	},
 		acceso.Handler,
 		cat.Handler,

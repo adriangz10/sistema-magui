@@ -1,0 +1,88 @@
+# Sistema completo para el VPS: MySQL + API (con la app web) + Caddy (HTTPS automático).
+#   docker compose -f deploy/docker-compose.prod.yml --env-file deploy/.env.prod up -d --build
+# Guía paso a paso: docs/DESPLIEGUE.md
+name: magui-prod
+
+services:
+  mysql:
+    image: mysql:8.4
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:?definir en deploy/.env.prod}
+      MYSQL_DATABASE: ${DB_NAME:-magui}
+      MYSQL_USER: ${DB_USER:?definir en deploy/.env.prod}
+      MYSQL_PASSWORD: ${DB_PASSWORD:?definir en deploy/.env.prod}
+      TZ: UTC
+    command:
+      - --character-set-server=utf8mb4
+      - --collation-server=utf8mb4_0900_ai_ci
+    # Sin puertos publicados: solo la API llega a la base, por la red interna.
+    volumes:
+      - mysql_data:/var/lib/mysql
+    networks: [interna]
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p$${MYSQL_ROOT_PASSWORD}"]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+
+  api:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile
+      args:
+        VERSION: ${VERSION:-dev}
+    image: magui-api:${VERSION:-dev}
+    restart: unless-stopped
+    depends_on:
+      mysql:
+        condition: service_healthy
+    environment:
+      APP_ENV: prod
+      DB_HOST: mysql
+      DB_PORT: "3306"
+      DB_NAME: ${DB_NAME:-magui}
+      DB_USER: ${DB_USER}
+      DB_PASSWORD: ${DB_PASSWORD}
+      AUTH_SECRET: ${AUTH_SECRET:?definir en deploy/.env.prod (openssl rand -base64 48)}
+      SESSION_DURATION: ${SESSION_DURATION:-720h}
+      ALLOWED_ORIGINS: https://${DOMINIO}
+      # Solo Caddy (IP fija) puede informar la IP del cliente con X-Forwarded-For. No se confía en
+      # toda la red: por ahí también entran conexiones con la IP de la puerta de enlace de Docker.
+      TRUSTED_PROXIES: 172.30.10.2
+    networks: [interna, web]
+
+  caddy:
+    image: caddy:2.10-alpine
+    restart: unless-stopped
+    depends_on: [api]
+    environment:
+      DOMINIO: ${DOMINIO:?definir en deploy/.env.prod (ej. magui.ejemplo.com)}
+      EMAIL_ACME: ${EMAIL_ACME:?definir en deploy/.env.prod (avisos de Let's Encrypt)}
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    networks:
+      web:
+        ipv4_address: 172.30.10.2
+
+networks:
+  interna:
+    internal: true # sin salida a internet: MySQL queda aislado
+  web:
+    ipam:
+      config:
+        - subnet: 172.30.10.0/24
+          gateway: 172.30.10.1
+          # IPs automáticas desde .128: la .2 queda reservada para Caddy (TRUSTED_PROXIES).
+          ip_range: 172.30.10.128/25
+
+volumes:
+  mysql_data:
+  caddy_data:
+  caddy_config:

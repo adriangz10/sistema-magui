@@ -1,5 +1,8 @@
 # Secretos y configuración local
 .env
+.env.*
+!.env.example
+!.env.prod.example
 *.local.env
 
 # Datos reales de la clienta (no van al repo)
