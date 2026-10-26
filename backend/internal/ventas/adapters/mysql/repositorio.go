@@ -54,6 +54,12 @@ func (r Repositorio) Guardar(ctx context.Context, v domain.Venta) error {
 	return err
 }
 
+func (r Repositorio) Existe(ctx context.Context, id string) (bool, error) {
+	var n int
+	err := db.Conn(ctx, r.DB).QueryRowContext(ctx, `SELECT COUNT(*) FROM venta WHERE id = ?`, id).Scan(&n)
+	return n > 0, err
+}
+
 func (r Repositorio) Obtener(ctx context.Context, id string) (domain.Venta, error) {
 	var v domain.Venta
 	var estado, origen string

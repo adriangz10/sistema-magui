@@ -103,16 +103,31 @@ Stack Go: `net/http` + `chi` (router), `database/sql` + `sqlx`, `golang-migrate`
 
 El principio: **en la tienda nunca se deja de cobrar**.
 
+Decisión de la Fase 10: el escritorio funciona igual que la web mientras hay internet (habla con el servidor
+central) y, **sin conexión, sigue cobrando**. El resto (compras, cambios de catálogo, estadísticas) necesita
+internet. Así no hay conflictos de catálogo y el escritorio no duplica la lógica de cada módulo.
+
 1. **IDs generados en el cliente (UUID v7).** Una venta hecha offline ya tiene su ID definitivo, así no hay choques al subirla.
 2. **El stock no se guarda como número, sino como movimientos** (`+10 compra`, `-1 venta`, `+1 anulación`). El stock es la suma. Dos dispositivos que venden offline nunca se pisan: el servidor solo suma los movimientos.
-3. **Outbox local.** Cada operación del escritorio (venta, gasto, compra, anulación) se guarda en SQLite y en una tabla `sync_outbox`, en la misma transacción.
-4. **Push.** Cuando hay internet, un worker envía el outbox a `POST /sync/push`. El servidor aplica cada operación una sola vez (idempotente por ID). Si se corta a la mitad, reintenta sin duplicar.
-5. **Pull.** El escritorio pide `GET /sync/pull?desde=<cursor>`: productos, precios, categorías, combos y movimientos nuevos hechos desde la web o el celular.
+3. **Copia del catálogo (pull).** Cada pocos minutos el escritorio descarga `GET /api/sync/catalogo` (todos los
+   productos con precio, stock y combos; son cientos, se baja entero) y lo guarda en SQLite.
+4. **Cola local (outbox).** Sin conexión, cada venta se guarda en SQLite y en la cola de envío, en la misma transacción.
+5. **Push.** Al volver internet, un proceso envía la cola a `POST /api/sync/ventas` de a tandas. El servidor
+   registra cada venta una sola vez (idempotente por ID), con su fecha y los precios cobrados, y calcula ahí
+   el costo y los lotes (FEFO). Si se corta a la mitad, reintenta sin duplicar.
 6. **Conflictos:**
-   - Ventas, gastos, compras y movimientos solo se agregan, nunca se editan, así que no hay conflicto.
-   - Catálogo (precio, nombre): gana el último cambio (`updated_at` + `version`).
+   - Las ventas solo se agregan, nunca se editan: no hay conflicto.
+   - El catálogo solo se edita con conexión, contra el servidor.
    - Stock negativo por ventas offline simultáneas: se permite y se marca en alertas para revisar.
 7. **Indicador en pantalla:** "🟢 En línea / 🟠 Sin conexión — 3 ventas pendientes de subir".
+
+Partes de la Fase 10:
+- **Parte 1 — servidor:** ventas sincronizadas idempotentes y endpoints `/api/sync/*`. ✅
+- **Parte 2 — núcleo del escritorio (Go):** SQLite con la copia del catálogo y la cola, venta local con las mismas
+  reglas de pago, proceso de sincronización con reintentos y un handler local que atiende la venta sin conexión y
+  reenvía el resto al servidor.
+- **Parte 3 — app Wails y pantallas:** proyecto `desktop/`, indicador de ventas pendientes, aviso "necesita
+  internet" en las pantallas que no funcionan sin conexión, prueba real cortando la red.
 
 Web y móvil trabajan online contra la API. Opcional en una fase posterior: la PWA puede cachear el catálogo para consultar precios sin señal.
 
@@ -145,7 +160,7 @@ venta_pago(id, venta_id, metodo ENUM('EFECTIVO','TRANSFERENCIA','QR','TARJETA'),
 
 gasto_caja(id UUID, fecha, monto, motivo, categoria_gasto, metodo)
 
-sync_outbox / sync_cursor   (solo escritorio, se agregan en la Fase 10)
+copia del catálogo y cola de ventas (solo en el SQLite del escritorio, Fase 10)
 ```
 
 > Implementado en la Fase 1: `backend/migrations/{mysql,sqlite}/00001_esquema_inicial.sql`.

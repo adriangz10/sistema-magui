@@ -20,6 +20,7 @@ import (
 	"magui/internal/platform/httpserver"
 	"magui/internal/platform/logger"
 	"magui/internal/platform/web"
+	sincro "magui/internal/sync"
 	"magui/internal/ventas"
 )
 
@@ -68,6 +69,7 @@ func run() error {
 
 	cat := catalogo.NuevoModuloMySQL(conn, log)
 	inv := inventario.NuevoModuloMySQL(conn, cat.Servicio, log)
+	ven := ventas.NuevoModuloMySQL(conn, cat.Servicio, inv.Servicio, log)
 
 	var frontend http.Handler
 	if cfg.FrontendDir != "" {
@@ -89,7 +91,8 @@ func run() error {
 		cat.Handler,
 		inv.Handler,
 		compras.NuevoModuloMySQL(conn, cat.Servicio, inv.Servicio, log).Handler,
-		ventas.NuevoModuloMySQL(conn, cat.Servicio, inv.Servicio, log).Handler,
+		ven.Handler,
+		sincro.NuevoModulo(cat.Servicio, ven.Servicio, log).Handler,
 		caja.NuevoModuloMySQL(conn, log).Handler,
 		estadisticas.NuevoModuloMySQL(conn, log).Handler,
 	)

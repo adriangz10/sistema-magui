@@ -124,5 +124,5 @@ Requiere HTTPS en producción (Fase 11).
 | 7 | Frontend base (ingreso, menú, componentes, modo oscuro) | ✅ |
 | 8 | Pantallas: vender, ventas, productos, categorías, inventario, compras, caja, inicio, estadísticas, configuración | ✅ |
 | 9 | App instalable en el celular (PWA) | ✅ |
-| 10 | Escritorio offline | ⏳ |
+| 10 | Escritorio offline (parte 1: sincronización en el servidor ✅) | ⏳ |
 | 11 | Despliegue | ⏳ |

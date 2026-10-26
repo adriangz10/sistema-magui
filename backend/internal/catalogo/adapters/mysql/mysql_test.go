@@ -139,6 +139,17 @@ func TestCatalogoMySQL(t *testing.T) {
 	if r := debe(s.ListarProductos(ctx, application.ConsultaProductos{Tipo: domain.TipoCombo}, pag)); r.Total != 1 || r.Items[0].Stock != 1 {
 		t.Errorf("combos = %+v", r)
 	}
+	// Copia completa para el escritorio
+	exp := debe(s.ExportarCatalogo(ctx))
+	if len(exp.Productos) != 3 || len(exp.Componentes) != 2 {
+		t.Errorf("exportar: %d productos, %d componentes", len(exp.Productos), len(exp.Componentes))
+	}
+	for _, c := range exp.Componentes {
+		if c.ComboID != combo.ID || (c.ProductoID == jabon.ID && c.Cantidad != 2) {
+			t.Errorf("componente = %+v", c)
+		}
+	}
+
 	agregarStock(t, conn, kaiak.ID, -4) // queda 1, mínimo 2 -> stock bajo
 	if r := debe(s.ListarProductos(ctx, application.ConsultaProductos{StockBajo: true}, pag)); r.Total != 1 || r.Items[0].ID != kaiak.ID {
 		t.Errorf("stock bajo = %+v", r)

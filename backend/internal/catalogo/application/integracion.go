@@ -43,6 +43,35 @@ func (s *Servicio) InfoProductos(ctx context.Context, ids []string) (map[string]
 	return out, nil
 }
 
+// ComponenteCombo indica que un combo lleva cierta cantidad de un producto.
+type ComponenteCombo struct {
+	ComboID    string `json:"comboId"`
+	ProductoID string `json:"productoId"`
+	Cantidad   int    `json:"cantidad"`
+}
+
+// CatalogoCompleto es la copia del catálogo que descarga el escritorio para vender sin conexión.
+type CatalogoCompleto struct {
+	Productos   []ProductoResumen `json:"productos"`
+	Componentes []ComponenteCombo `json:"componentes"`
+}
+
+// ExportarCatalogo devuelve todos los productos (activos e inactivos) con su stock y los
+// componentes de los combos. Es chico (cientos de productos): se descarga entero.
+func (s *Servicio) ExportarCatalogo(ctx context.Context) (CatalogoCompleto, error) {
+	prods, comps, err := s.productos.Exportar(ctx)
+	if err != nil {
+		return CatalogoCompleto{}, err
+	}
+	if prods == nil {
+		prods = []ProductoResumen{}
+	}
+	if comps == nil {
+		comps = []ComponenteCombo{}
+	}
+	return CatalogoCompleto{Productos: prods, Componentes: comps}, nil
+}
+
 // ObtenerEmpresa devuelve una empresa (para validar referencias desde otros módulos).
 func (s *Servicio) ObtenerEmpresa(ctx context.Context, id string) (EmpresaDTO, error) {
 	e, err := s.empresas.ObtenerPorID(ctx, id)

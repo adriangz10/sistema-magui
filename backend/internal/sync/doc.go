@@ -1,7 +1,11 @@
-// Package sync: Sincronización del escritorio offline con el servidor central (outbox, push y pull).
+// Package sync sincroniza el escritorio con el servidor central.
 //
-// Capas (arquitectura hexagonal):
-//   - domain:      entidades y reglas de negocio puras. No importa nada externo.
-//   - application: casos de uso y puertos (interfaces) que el dominio necesita.
-//   - adapters:    implementaciones de los puertos (http, mysql, sqlite).
+// El escritorio vende sin conexión con una copia del catálogo y guarda cada venta en una
+// cola local. Al volver la conexión:
+//   - pull: descarga la copia completa del catálogo (GET /api/sync/catalogo);
+//   - push: envía las ventas pendientes (POST /api/sync/ventas). El servidor las registra
+//     con el ID generado en el escritorio, así que reenviar una venta no la duplica.
+//
+// Capas: application (casos de uso, modelos del contrato y puertos) y adapters
+// (enlaces con catálogo y ventas; http).
 package sync

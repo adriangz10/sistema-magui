@@ -160,6 +160,17 @@ func (r *memProductos) ObtenerDetalle(ctx context.Context, id string) (ProductoD
 	}
 	return d, nil
 }
+func (r *memProductos) Exportar(context.Context) ([]ProductoResumen, []ComponenteCombo, error) {
+	var ps []ProductoResumen
+	var cs []ComponenteCombo
+	for _, p := range r.m {
+		ps = append(ps, resumen(p))
+		for _, it := range p.Items {
+			cs = append(cs, ComponenteCombo{ComboID: p.ID, ProductoID: it.ProductoID, Cantidad: it.Cantidad})
+		}
+	}
+	return ps, cs, nil
+}
 func (r *memProductos) ActivosEnCategorias(_ context.Context, ids []string) ([]domain.Producto, error) {
 	var out []domain.Producto
 	for _, p := range r.m {

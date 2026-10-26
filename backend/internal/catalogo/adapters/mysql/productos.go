@@ -341,6 +341,42 @@ func ordenSQL(o application.Orden) string {
 	}
 }
 
+func (r Productos) Exportar(ctx context.Context) ([]application.ProductoResumen, []application.ComponenteCombo, error) {
+	conn := db.Conn(ctx, r.DB)
+	rows, err := conn.QueryContext(ctx, consultaResumen+` ORDER BY p.nombre, p.id`)
+	if err != nil {
+		return nil, nil, err
+	}
+	var prods []application.ProductoResumen
+	for rows.Next() {
+		d, err := scanDetalle(rows)
+		if err != nil {
+			rows.Close()
+			return nil, nil, err
+		}
+		prods = append(prods, d.ProductoResumen)
+	}
+	rows.Close()
+	if err := rows.Err(); err != nil {
+		return nil, nil, err
+	}
+
+	rows, err = conn.QueryContext(ctx, `SELECT combo_id, producto_id, cantidad FROM combo_item ORDER BY combo_id, producto_id`)
+	if err != nil {
+		return nil, nil, err
+	}
+	defer rows.Close()
+	var comps []application.ComponenteCombo
+	for rows.Next() {
+		var c application.ComponenteCombo
+		if err := rows.Scan(&c.ComboID, &c.ProductoID, &c.Cantidad); err != nil {
+			return nil, nil, err
+		}
+		comps = append(comps, c)
+	}
+	return prods, comps, rows.Err()
+}
+
 func (r Productos) ObtenerDetalle(ctx context.Context, id string) (application.ProductoDetalle, error) {
 	conn := db.Conn(ctx, r.DB)
 	d, err := scanDetalle(conn.QueryRowContext(ctx, consultaResumen+` WHERE p.id = ?`, id))

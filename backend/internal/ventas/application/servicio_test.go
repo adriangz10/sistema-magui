@@ -20,6 +20,10 @@ import (
 type repoMem struct{ ventas map[string]domain.Venta }
 
 func (r *repoMem) Guardar(_ context.Context, v domain.Venta) error { r.ventas[v.ID] = v; return nil }
+func (r *repoMem) Existe(_ context.Context, id string) (bool, error) {
+	_, ok := r.ventas[id]
+	return ok, nil
+}
 func (r *repoMem) Obtener(_ context.Context, id string) (domain.Venta, error) {
 	v, ok := r.ventas[id]
 	if !ok {

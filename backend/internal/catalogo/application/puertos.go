@@ -48,6 +48,9 @@ type RepositorioProductos interface {
 	// ActualizarPrecios guarda precio, versión y fecha de modificación de cada producto.
 	ActualizarPrecios(ctx context.Context, productos []domain.Producto) error
 
+	// Exportar devuelve todos los productos (con stock) y los componentes de todos los combos.
+	Exportar(ctx context.Context) ([]ProductoResumen, []ComponenteCombo, error)
+
 	RegistrarCambiosPrecio(ctx context.Context, cambios []domain.CambioPrecio) error
 	HistorialPrecios(ctx context.Context, productoID string, p paginacion.Solicitud) ([]CambioPrecioDTO, int, error)
 }

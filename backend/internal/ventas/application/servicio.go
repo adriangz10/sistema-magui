@@ -3,6 +3,7 @@ package application
 import (
 	"context"
 	"strings"
+	"time"
 
 	"magui/internal/kernel/dinero"
 	"magui/internal/kernel/errores"
@@ -59,30 +60,39 @@ func (s *Servicio) RegistrarVenta(ctx context.Context, cmd ComandoVenta) (VentaD
 			}
 			lineas[i] = domain.LineaVenta{ProductoID: p.ID, Cantidad: l.Cantidad, Precio: p.Precio}
 		}
-
-		venta, _, err := domain.NuevaVenta(s.ids.Nuevo(), lineas, cmd.Pagos, cmd.Origen, s.reloj.Ahora(), s.ids.Nuevo)
-		if err != nil {
-			return err
-		}
-		ventaID = venta.ID
-
-		componentes, err := s.datosComponentes(ctx, prods)
-		if err != nil {
-			return err
-		}
-		for i, it := range venta.Items {
-			costo, err := s.descontarRenglon(ctx, venta.ID, it, prods[it.ProductoID], componentes, cmd.PermitirSinStock)
-			if err != nil {
-				return err
-			}
-			venta.Items[i].CostoTotal = costo
-		}
-		return s.repo.Guardar(ctx, venta)
+		ventaID = s.ids.Nuevo()
+		ahora := s.reloj.Ahora()
+		return s.guardarVenta(ctx, ventaID, lineas, cmd.Pagos, cmd.Origen, ahora, ahora, prods, cmd.PermitirSinStock)
 	})
 	if err != nil {
 		return VentaDetalle{}, err
 	}
 	return s.repo.Detalle(ctx, ventaID)
+}
+
+// guardarVenta arma la venta, descuenta el stock (guardando el costo de lo vendido) y la guarda.
+// Debe llamarse dentro de una transacción.
+func (s *Servicio) guardarVenta(ctx context.Context, id string, lineas []domain.LineaVenta, pagos []domain.PagoIngresado,
+	origen domain.Origen, fecha, creada time.Time, prods map[string]ProductoVenta, permitirSinStock bool) error {
+
+	venta, _, err := domain.NuevaVenta(id, lineas, pagos, origen, fecha, s.ids.Nuevo)
+	if err != nil {
+		return err
+	}
+	venta.CreatedAt = creada
+
+	componentes, err := s.datosComponentes(ctx, prods)
+	if err != nil {
+		return err
+	}
+	for i, it := range venta.Items {
+		costo, err := s.descontarRenglon(ctx, venta.ID, it, prods[it.ProductoID], componentes, permitirSinStock)
+		if err != nil {
+			return err
+		}
+		venta.Items[i].CostoTotal = costo
+	}
+	return s.repo.Guardar(ctx, venta)
 }
 
 // datosComponentes trae nombre y costo de los productos que forman los combos vendidos.

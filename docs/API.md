@@ -162,6 +162,37 @@ Los combos descuentan el stock de sus componentes.
 lo tiene). `ganancia = total − costoTotal`. Si algún producto no tenía costo, `costoCompleto` es `false` y la
 ganancia es aproximada (mayor que la real).
 
+## Sincronización (escritorio)
+
+La usa la app de escritorio para vender sin conexión. Requiere sesión como el resto.
+
+| Método | Ruta | Detalle |
+|---|---|---|
+| GET | `/sync/catalogo` | Copia completa del catálogo: todos los productos (activos e inactivos) con stock, y los componentes de los combos |
+| POST | `/sync/ventas` | Sube ventas cobradas sin conexión (hasta 50 por envío) |
+
+```json
+// GET /sync/catalogo
+{ "generadaEn": "…",
+  "productos": [ { "id": "…", "sku": "P1", "codigoBarras": null, "nombre": "Kaiak", "tipo": "SIMPLE",
+                   "empresa": "Natura", "precioVenta": "59200.00", "stock": 3, "activo": true, "version": 2 } ],
+  "componentes": [ { "comboId": "…", "productoId": "…", "cantidad": 2 } ] }
+
+// POST /sync/ventas
+{ "ventas": [ { "id": "0192f3a0-…", "fecha": "2026-10-24T18:30:00Z",
+                "items": [ { "productoId": "…", "cantidad": 1, "precio": "55000" } ],
+                "pagos": [ { "metodo": "EFECTIVO", "monto": "60000" } ] } ] }
+// -> 200, un resultado por venta y en el mismo orden
+{ "resultados": [ { "id": "0192f3a0-…", "estado": "registrada" } ] }
+```
+
+- `id` es un UUID generado en el escritorio: **reenviar una venta no la duplica** (`estado: "ya_existia"`).
+- Se respetan la fecha y los precios cobrados. Si la fecha está en el futuro (reloj de la PC adelantado) se usa la
+  hora del servidor. El origen queda `DESKTOP`.
+- Se registra aunque no haya stock (queda negativo) o el producto se haya desactivado después.
+- `estado: "rechazada"` trae `error: {code, message}`: datos inválidos, reenviarla no sirve.
+- Si el servidor falla (500) no se registra ninguna respuesta parcial: el escritorio reintenta el envío completo.
+
 ## Caja (gastos y retiros)
 
 Dinero que sale de la caja y que **no** es compra de mercadería (servicios, transporte, retiro personal…).

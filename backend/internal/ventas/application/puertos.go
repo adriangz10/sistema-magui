@@ -14,6 +14,8 @@ import (
 type Repositorio interface {
 	// Guardar inserta la venta con sus renglones y pagos.
 	Guardar(ctx context.Context, v domain.Venta) error
+	// Existe indica si ya hay una venta con ese ID (para no duplicar ventas sincronizadas).
+	Existe(ctx context.Context, id string) (bool, error)
 	// Obtener trae los datos básicos (sin renglones ni pagos) para operar sobre la venta.
 	Obtener(ctx context.Context, id string) (domain.Venta, error)
 	// MarcarAnulada falla con domain.ErrVentaYaAnulada si ya estaba anulada.
