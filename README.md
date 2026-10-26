@@ -110,6 +110,18 @@ compilada, no con `npm start`.
 *Configuración → App en este dispositivo*. En iPhone: Safari → *Compartir* → *Agregar a inicio*.
 Requiere HTTPS en producción (Fase 11).
 
+### 5. Escritorio (núcleo, en el navegador)
+
+Mientras se arma la app instalable (Wails), el núcleo del escritorio se prueba en el navegador. Con la API
+corriendo y el frontend compilado, desde `backend/`:
+
+```bash
+go run ./cmd/escritorio -servidor http://localhost:8080 -frontend ../frontend/dist/frontend/browser
+```
+
+Abrir http://localhost:4300 e ingresar. Si se corta la API, Vender sigue cobrando; al volver, las ventas se suben
+solas (estado en `/api/escritorio/estado`). La base local queda en `escritorio.db` (`-datos` para otra ruta).
+
 ## Estado
 
 | Fase | Descripción | Estado |
@@ -124,5 +136,5 @@ Requiere HTTPS en producción (Fase 11).
 | 7 | Frontend base (ingreso, menú, componentes, modo oscuro) | ✅ |
 | 8 | Pantallas: vender, ventas, productos, categorías, inventario, compras, caja, inicio, estadísticas, configuración | ✅ |
 | 9 | App instalable en el celular (PWA) | ✅ |
-| 10 | Escritorio offline (parte 1: sincronización en el servidor ✅) | ⏳ |
+| 10 | Escritorio offline (partes 1 y 2 ✅: sincronización y núcleo; falta la app Wails) | ⏳ |
 | 11 | Despliegue | ⏳ |

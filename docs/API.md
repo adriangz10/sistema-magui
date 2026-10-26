@@ -193,6 +193,22 @@ La usa la app de escritorio para vender sin conexión. Requiere sesión como el 
 - `estado: "rechazada"` trae `error: {code, message}`: datos inválidos, reenviarla no sirve.
 - Si el servidor falla (500) no se registra ninguna respuesta parcial: el escritorio reintenta el envío completo.
 
+### Handler local del escritorio
+
+La pantalla del escritorio habla con un handler local (`internal/escritorio`), no directo con el servidor:
+
+| Ruta | Con conexión | Sin conexión |
+|---|---|---|
+| `POST /api/ventas` | Se cobra en local y se sube enseguida | Se cobra en local y queda en la cola |
+| `GET /api/productos`, `/api/productos/codigo/{c}` | Del servidor | De la copia (`desdeCopia: true`); busca `q`, filtra `estado` y `tipo` |
+| `POST /api/auth/login` | En el servidor (se recuerda la sesión) | Con la última contraseña usada en esta PC |
+| `GET /api/escritorio/estado` | `{enLinea, pendientes, rechazadas, necesitaIngresar, ultimaSincronizacion, copiaDelCatalogo, ultimoError}` | ídem |
+| Resto de `/api/*` | Se reenvía al servidor | 503 `sin_conexion` |
+
+La venta local usa el mismo caso de uso que el servidor (precios del catálogo, combos, aviso de
+`stock_insuficiente` y reglas de pago); el stock que muestra es el de la copia menos lo vendido en la PC que la
+copia todavía no refleja.
+
 ## Caja (gastos y retiros)
 
 Dinero que sale de la caja y que **no** es compra de mercadería (servicios, transporte, retiro personal…).

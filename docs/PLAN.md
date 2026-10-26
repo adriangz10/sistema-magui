@@ -125,7 +125,7 @@ Partes de la Fase 10:
 - **Parte 1 — servidor:** ventas sincronizadas idempotentes y endpoints `/api/sync/*`. ✅
 - **Parte 2 — núcleo del escritorio (Go):** SQLite con la copia del catálogo y la cola, venta local con las mismas
   reglas de pago, proceso de sincronización con reintentos y un handler local que atiende la venta sin conexión y
-  reenvía el resto al servidor.
+  reenvía el resto al servidor. ✅ (`internal/escritorio`, `cmd/escritorio`)
 - **Parte 3 — app Wails y pantallas:** proyecto `desktop/`, indicador de ventas pendientes, aviso "necesita
   internet" en las pantallas que no funcionan sin conexión, prueba real cortando la red.
 

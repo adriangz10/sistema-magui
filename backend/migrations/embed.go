@@ -4,5 +4,5 @@ package migrations
 
 import "embed"
 
-//go:embed mysql/*.sql sqlite/*.sql
+//go:embed mysql/*.sql sqlite/*.sql escritorio/*.sql
 var FS embed.FS

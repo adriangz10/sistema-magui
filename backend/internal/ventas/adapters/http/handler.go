@@ -76,6 +76,9 @@ func (req ventaReq) comando() (application.ComandoVenta, error) {
 	return cmd, v.Err()
 }
 
+// Registrar cobra una venta (lo usa también el escritorio, que monta solo esta ruta).
+func (h *Handler) Registrar(w http.ResponseWriter, r *http.Request) { h.registrar(w, r) }
+
 func (h *Handler) registrar(w http.ResponseWriter, r *http.Request) {
 	var req ventaReq
 	if err := httpx.LeerJSON(w, r, &req); err != nil {

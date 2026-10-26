@@ -18,6 +18,8 @@ type Dialect string
 const (
 	MySQL  Dialect = "mysql"
 	SQLite Dialect = "sqlite"
+	// Escritorio es la base local de la app de escritorio (SQLite con su propio esquema).
+	Escritorio Dialect = "escritorio"
 )
 
 // OpenMySQL abre el pool de conexiones y verifica que la base responda.

@@ -23,7 +23,7 @@ func NewMigrator(conn *sql.DB, d Dialect) (*Migrator, error) {
 	switch d {
 	case MySQL:
 		gd = goose.DialectMySQL
-	case SQLite:
+	case SQLite, Escritorio:
 		gd = goose.DialectSQLite3
 	default:
 		return nil, fmt.Errorf("dialecto desconocido %q", d)

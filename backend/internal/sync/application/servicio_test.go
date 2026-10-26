@@ -22,7 +22,9 @@ func (v ventasFalsas) RegistrarOffline(_ context.Context, in VentaOffline) (bool
 
 type catalogoVacio struct{}
 
-func (catalogoVacio) Copia(context.Context) ([]ProductoCopia, []ComponenteCopia, error) { return nil, nil, nil }
+func (catalogoVacio) Copia(context.Context) ([]ProductoCopia, []ComponenteCopia, error) {
+	return nil, nil, nil
+}
 
 func TestRecibirVentas(t *testing.T) {
 	falsas := ventasFalsas{

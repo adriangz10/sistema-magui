@@ -24,6 +24,10 @@ internal/<modulo>/
 - `internal/platform` es infraestructura compartida (config, logger, http, db), no lógica de negocio.
 - `internal/kernel` es el núcleo compartido que pueden usar todos los dominios: `dinero`, `errores`,
   `paginacion`, `id`, `reloj` y `tx` (puerto de transacciones). No depende de nada más.
+- `internal/escritorio` es el núcleo de la app de escritorio: reutiliza el caso de uso de ventas con adaptadores
+  SQLite propios (`adapters/sqlite` implementa los puertos `Repositorio`, `Catalogo` e `Inventario` de ventas).
+  Su base local tiene un esquema propio en `migrations/escritorio` (copia del catálogo y cola), no una copia del
+  esquema del servidor. El contrato de sincronización (modelos JSON) vive en `internal/sync/application`.
 - Cada módulo expone un `modulo.go` en su raíz que arma servicio + adaptadores; `cmd/*` solo los junta.
 
 ### Reglas
