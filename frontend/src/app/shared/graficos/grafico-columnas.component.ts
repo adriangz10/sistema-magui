@@ -28,7 +28,7 @@ const MARGEN = { arriba: 22, derecha: 8, abajo: 28, izquierda: 52 };
   host: { class: 'block' },
   template: `
     @if (sinDatos()) {
-      <p class="flex items-center justify-center rounded-xl bg-ink-50 text-sm text-ink-500 dark:bg-ink-800/50" [style.height.px]="altoTotal">
+      <p class="flex items-center justify-center rounded-xl bg-ink-50 text-sm text-muted dark:bg-ink-800/50" [style.height.px]="altoTotal">
         {{ mensajeVacio() }}
       </p>
     } @else {
@@ -41,7 +41,7 @@ const MARGEN = { arriba: 22, derecha: 8, abajo: 28, izquierda: 52 };
             <line [attr.x1]="margen.izquierda" [attr.x2]="ancho() - margen.derecha" [attr.y1]="y(m)" [attr.y2]="y(m)"
                   class="stroke-ink-200 dark:stroke-ink-800" stroke-width="1" />
             <text [attr.x]="margen.izquierda - 8" [attr.y]="y(m)" text-anchor="end" dominant-baseline="middle"
-                  class="fill-ink-500 text-[11px] tabular-nums">{{ formatoEje(m) }}</text>
+                  class="fill-ink-500 text-[11px] dark:fill-ink-400 tabular-nums">{{ formatoEje(m) }}</text>
           }
           <!-- columnas -->
           @for (p of datos(); track p.etiqueta; let i = $index) {
@@ -51,13 +51,13 @@ const MARGEN = { arriba: 22, derecha: 8, abajo: 28, izquierda: 52 };
               <rect [attr.x]="xBanda(i)" [attr.y]="margen.arriba" [attr.width]="banda()" [attr.height]="ALTO_PLOT" fill="transparent" />
               @if (p.valor > 0) {
                 <path [attr.d]="columna(i, p.valor)" class="transition-opacity"
-                      [class]="activa() >= 0 && activa() !== i ? 'fill-brand-600 opacity-40 dark:fill-brand-500' : 'fill-brand-600 dark:fill-brand-500'" />
+                      [class]="activa() >= 0 && activa() !== i ? 'fill-brand-600 opacity-40 dark:fill-brand-400' : 'fill-brand-600 dark:fill-brand-400'" />
               }
               @if (i === indiceMaximo() && p.valor > 0) {
                 <text [attr.x]="centro(i)" [attr.y]="y(p.valor) - 6" text-anchor="middle" class="fill-ink-700 text-[11px] font-medium dark:fill-ink-300">{{ formatoEje(p.valor) }}</text>
               }
               @if (mostrarEtiqueta(i)) {
-                <text [attr.x]="centro(i)" [attr.y]="margen.arriba + ALTO_PLOT + 18" text-anchor="middle" class="fill-ink-500 text-[11px]">{{ p.etiqueta }}</text>
+                <text [attr.x]="centro(i)" [attr.y]="margen.arriba + ALTO_PLOT + 18" text-anchor="middle" class="fill-ink-500 text-[11px] dark:fill-ink-400">{{ p.etiqueta }}</text>
               }
             </g>
           }
@@ -65,24 +65,24 @@ const MARGEN = { arriba: 22, derecha: 8, abajo: 28, izquierda: 52 };
         </svg>
         @if (activa() >= 0) {
           @let p = datos()[activa()];
-          <div class="pointer-events-none absolute z-10 -translate-x-1/2 -translate-y-full rounded-lg border border-ink-200 bg-white px-3 py-2 text-xs shadow-lg dark:border-ink-700 dark:bg-ink-900"
+          <div class="pointer-events-none absolute z-10 -translate-x-1/2 -translate-y-full rounded-lg border border-ink-200 bg-white px-3 py-2 text-xs shadow-md dark:border-ink-700 dark:bg-ink-900"
                [style.left.px]="centro(activa())" [style.top.px]="Math.max(y(p.valor) - 8, 0)" role="status">
             <p class="text-sm font-semibold whitespace-nowrap">{{ p.texto }}</p>
-            <p class="whitespace-nowrap text-ink-500">{{ p.etiqueta }}{{ p.detalle ? ' · ' + p.detalle : '' }}</p>
+            <p class="whitespace-nowrap text-muted">{{ p.etiqueta }}{{ p.detalle ? ' · ' + p.detalle : '' }}</p>
           </div>
         }
       }
     </div>
     }
     <details class="mt-2 text-sm" [class.hidden]="sinDatos()">
-      <summary class="cursor-pointer text-ink-500 hover:text-ink-700 dark:hover:text-ink-300">Ver como tabla</summary>
+      <summary class="cursor-pointer text-muted hover:text-ink-700 dark:hover:text-ink-300">Ver como tabla</summary>
       <div class="mt-2 max-h-64 overflow-y-auto">
         <table class="tabla">
           <caption class="sr-only">{{ titulo() }}</caption>
           <thead><tr><th scope="col">{{ etiquetaX() }}</th><th scope="col" class="text-right">Valor</th><th scope="col">Detalle</th></tr></thead>
           <tbody>
             @for (p of datos(); track p.etiqueta) {
-              <tr><td>{{ p.etiqueta }}</td><td class="text-right tabular-nums">{{ p.texto }}</td><td class="text-ink-500">{{ p.detalle ?? '' }}</td></tr>
+              <tr><td>{{ p.etiqueta }}</td><td class="text-right tabular-nums">{{ p.texto }}</td><td class="text-muted">{{ p.detalle ?? '' }}</td></tr>
             }
           </tbody>
         </table>

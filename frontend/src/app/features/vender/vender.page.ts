@@ -41,11 +41,11 @@ import { PanelCobroComponent } from './panel-cobro.component';
 
     <!-- Celular: total siempre visible sobre la barra de navegación -->
     @if (!carrito.vacio()) {
-      <div class="fixed inset-x-0 bottom-[calc(3.6rem+env(safe-area-inset-bottom))] z-30 border-t border-ink-200 bg-white/95 px-4 py-2 backdrop-blur lg:hidden dark:border-ink-800 dark:bg-ink-900/95">
+      <div class="fixed inset-x-0 bottom-[calc(3.6rem+env(safe-area-inset-bottom))] z-30 border-t border-ink-200 bg-white px-4 py-2 lg:hidden dark:border-ink-800 dark:bg-ink-900">
         <div class="flex items-center gap-3">
           <div class="min-w-0 flex-1">
-            <p class="text-lg font-bold tabular-nums">{{ total() | dinero }}</p>
-            <p class="text-xs" [class]="carrito.cobro().falta > 0 ? 'text-danger dark:text-red-400' : 'text-ok dark:text-green-400'">
+            <p class="text-lg font-semibold tabular-nums">{{ total() | dinero }}</p>
+            <p class="text-xs" [class]="carrito.cobro().falta > 0 ? 'text-danger' : 'text-muted'">
               @if (carrito.cobro().falta > 0) { Falta {{ falta() | dinero }} } @else if (carrito.cobro().vuelto > 0) { Vuelto {{ vuelto() | dinero }} } @else { Listo para cobrar }
             </p>
           </div>
@@ -61,18 +61,18 @@ import { PanelCobroComponent } from './panel-cobro.component';
     <app-modal [abierto]="!!ultimaVenta()" titulo="Venta registrada" (cerrar)="nuevaVenta()">
       @if (ultimaVenta(); as v) {
         <div class="text-center">
-          <lucide-icon [img]="iconoOk" [size]="48" class="mx-auto text-ok dark:text-green-400" aria-hidden="true" />
-          <p class="mt-2 text-sm text-ink-500">Total cobrado</p>
-          <p class="text-3xl font-bold tabular-nums">{{ v.total | dinero }}</p>
+          <lucide-icon [img]="iconoOk" [size]="48" class="mx-auto text-ok" aria-hidden="true" />
+          <p class="mt-2 text-sm text-muted">Total cobrado</p>
+          <p class="text-3xl font-semibold tabular-nums">{{ v.total | dinero }}</p>
           @if (v.vuelto !== '0.00') {
-            <div class="mt-4 rounded-2xl bg-green-50 p-4 text-ok dark:bg-green-950 dark:text-green-300">
+            <div class="aviso-ok mt-4 rounded-xl p-4">
               <p class="text-sm font-medium">Vuelto</p>
-              <p class="text-4xl font-bold tabular-nums">{{ v.vuelto | dinero }}</p>
+              <p class="text-4xl font-semibold tabular-nums">{{ v.vuelto | dinero }}</p>
             </div>
           }
-          <p class="mt-4 text-sm text-ink-500">{{ v.unidades }} {{ v.unidades === 1 ? 'unidad' : 'unidades' }} · {{ metodos(v) }}</p>
+          <p class="mt-4 text-sm text-muted">{{ v.unidades }} {{ v.unidades === 1 ? 'unidad' : 'unidades' }} · {{ metodos(v) }}</p>
           @if (escritorio.activo && !conexion.enLinea()) {
-            <p class="mt-2 text-sm text-warn dark:text-amber-300">Guardada en esta PC: se sube sola cuando vuelva internet.</p>
+            <p class="mt-2 text-sm text-warn">Guardada en esta PC: se sube sola cuando vuelva internet.</p>
           }
         </div>
       }

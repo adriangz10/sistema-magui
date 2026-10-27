@@ -53,9 +53,9 @@ function inicioDeMes(): string {
         </label>
       </div>
       <div class="card flex flex-col justify-center p-5">
-        <p class="text-sm text-ink-500">{{ textoPeriodo() }}</p>
-        <p class="mt-1 text-3xl font-bold tabular-nums">{{ (listado()?.totalMonto ?? '0') | dinero }}</p>
-        <p class="text-sm text-ink-500">{{ listado()?.total ?? 0 }} {{ listado()?.total === 1 ? 'movimiento' : 'movimientos' }}</p>
+        <p class="text-sm text-muted">{{ textoPeriodo() }}</p>
+        <p class="mt-1 text-3xl font-semibold tabular-nums">{{ (listado()?.totalMonto ?? '0') | dinero }}</p>
+        <p class="text-sm text-muted">{{ listado()?.total ?? 0 }} {{ listado()?.total === 1 ? 'movimiento' : 'movimientos' }}</p>
       </div>
     </div>
 
@@ -71,7 +71,7 @@ function inicioDeMes(): string {
               <td class="whitespace-nowrap">{{ g.fecha | fecha }}</td>
               <td>
                 {{ g.motivo }}
-                @if (g.anulado) { <p class="text-xs text-danger dark:text-red-400">Anulado: {{ g.motivoAnulacion }}</p> }
+                @if (g.anulado) { <p class="text-xs text-danger">Anulado: {{ g.motivoAnulacion }}</p> }
               </td>
               <td>{{ g.categoria ?? '—' }}</td>
               <td><span class="badge-neutro">{{ nombreMetodo(g.metodo) }}</span></td>

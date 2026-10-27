@@ -29,18 +29,18 @@ const MOTIVOS = ['Conteo de stock', 'Rotura', 'Vencido', 'Regalo / muestra', 'Us
         @if (stock(); as s) {
           <div class="rounded-xl bg-ink-50 px-4 py-3 dark:bg-ink-800/60">
             <p class="font-medium">{{ s.nombre }}</p>
-            <p class="text-sm text-ink-500">{{ s.sku }} · stock actual <strong class="text-ink-900 dark:text-ink-100">{{ s.stock }}</strong></p>
+            <p class="text-sm text-muted">{{ s.sku }} · stock actual <strong class="text-ink-900 dark:text-ink-100">{{ s.stock }}</strong></p>
           </div>
 
           <fieldset>
             <legend class="etiqueta">¿Qué querés hacer?</legend>
             <div class="flex gap-2">
               <label class="flex flex-1 cursor-pointer items-center gap-2 rounded-xl border px-3 py-2.5 text-sm"
-                     [class]="sentido() === 'sumar' ? 'border-brand-500 bg-brand-50 dark:bg-brand-950' : 'border-ink-200 dark:border-ink-700'">
+                     [class]="sentido() === 'sumar' ? 'border-brand-600 bg-brand-50 dark:border-brand-300 dark:bg-brand-950' : 'border-ink-200 dark:border-ink-700'">
                 <input type="radio" name="sentido" class="accent-brand-600" value="sumar" [ngModel]="sentido()" (ngModelChange)="sentido.set($event)" /> Sumar unidades
               </label>
               <label class="flex flex-1 cursor-pointer items-center gap-2 rounded-xl border px-3 py-2.5 text-sm"
-                     [class]="sentido() === 'restar' ? 'border-brand-500 bg-brand-50 dark:bg-brand-950' : 'border-ink-200 dark:border-ink-700'">
+                     [class]="sentido() === 'restar' ? 'border-brand-600 bg-brand-50 dark:border-brand-300 dark:bg-brand-950' : 'border-ink-200 dark:border-ink-700'">
                 <input type="radio" name="sentido" class="accent-brand-600" value="restar" [ngModel]="sentido()" (ngModelChange)="sentido.set($event)" /> Quitar unidades
               </label>
             </div>
@@ -81,7 +81,7 @@ const MOTIVOS = ['Conteo de stock', 'Rotura', 'Vencido', 'Regalo / muestra', 'Us
             </button>
           </div>
         } @else {
-          <p class="text-sm text-ink-500">Elegí un producto para ver su stock y corregirlo.</p>
+          <p class="text-sm text-muted">Elegí un producto para ver su stock y corregirlo.</p>
         }
       </section>
 
@@ -94,7 +94,7 @@ const MOTIVOS = ['Conteo de stock', 'Rotura', 'Vencido', 'Regalo / muestra', 'Us
                 <li class="flex items-center justify-between gap-3 px-5 py-3 text-sm">
                   <div>
                     <p>{{ l.vencimiento ? 'Vence el ' + (l.vencimiento | fecha) : 'Sin fecha de vencimiento' }}</p>
-                    <p class="text-xs text-ink-500">Costo {{ l.costo ? (l.costo | dinero) : 'sin cargar' }}</p>
+                    <p class="text-xs text-muted">Costo {{ l.costo ? (l.costo | dinero) : 'sin cargar' }}</p>
                   </div>
                   <div class="text-right">
                     <p class="font-semibold tabular-nums">{{ l.stock }} u.</p>
@@ -104,7 +104,7 @@ const MOTIVOS = ['Conteo de stock', 'Rotura', 'Vencido', 'Regalo / muestra', 'Us
               }
             </ul>
           } @else {
-            <p class="px-5 py-8 text-center text-sm text-ink-500">No tiene unidades en stock.</p>
+            <p class="px-5 py-8 text-center text-sm text-muted">No tiene unidades en stock.</p>
           }
         </section>
       }

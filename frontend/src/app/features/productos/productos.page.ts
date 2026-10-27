@@ -37,9 +37,9 @@ const FILTRO_INICIAL: Filtro = { q: '', categoriaId: '', empresaId: '', tipo: ''
 
     <div class="card mb-4 space-y-3 p-4">
       <div class="relative">
-        <lucide-icon [img]="iconos.buscar" [size]="18" class="pointer-events-none absolute top-1/2 left-3 -translate-y-1/2 text-ink-400" aria-hidden="true" />
+        <lucide-icon [img]="iconos.buscar" [size]="18" class="pointer-events-none absolute top-1/2 left-3 -translate-y-1/2 text-muted" aria-hidden="true" />
         <label for="f-q" class="sr-only">Buscar productos</label>
-        <input id="f-q" type="search" class="input pl-10" placeholder="Buscar por nombre, SKU o código de barras"
+        <input id="f-q" type="search" class="input pl-11" placeholder="Buscar por nombre, SKU o código de barras"
                [ngModel]="filtro().q" (ngModelChange)="buscar($event)" />
       </div>
       <button type="button" class="btn-secundario w-full lg:hidden" (click)="filtrosAbiertos.set(!filtrosAbiertos())"
@@ -102,11 +102,11 @@ const FILTRO_INICIAL: Filtro = { q: '', categoriaId: '', empresaId: '', tipo: ''
                   @if (p.tipo === 'COMBO') { <span class="badge-neutro ml-1">Combo</span> }
                   @if (!p.activo) { <span class="badge-danger ml-1">Desactivado</span> }
                 </p>
-                <p class="text-xs text-ink-500">{{ p.sku }}{{ p.codigoBarras ? ' · ' + p.codigoBarras : '' }}</p>
+                <p class="text-xs text-muted">{{ p.sku }}{{ p.codigoBarras ? ' · ' + p.codigoBarras : '' }}</p>
               </td>
-              <td class="text-ink-500">{{ p.empresa ?? '—' }}</td>
+              <td class="text-muted">{{ p.empresa ?? '—' }}</td>
               <td class="text-right font-medium tabular-nums">{{ p.precioVenta | dinero }}</td>
-              <td class="text-right text-ink-500 tabular-nums">{{ p.costo ? (p.costo | dinero) : '—' }}</td>
+              <td class="text-right text-muted tabular-nums">{{ p.costo ? (p.costo | dinero) : '—' }}</td>
               <td class="text-right tabular-nums">{{ margen(p) }}</td>
               <td class="text-right">
                 <span [class]="claseStock(p)">{{ p.stock }}</span>

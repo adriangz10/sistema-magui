@@ -9,8 +9,8 @@
   "scope": "./",
   "start_url": "./inicio",
   "id": "./",
-  "theme_color": "#db2777",
-  "background_color": "#f8fafc",
+  "theme_color": "#fafaf9",
+  "background_color": "#fafaf9",
   "categories": ["business", "productivity"],
   "shortcuts": [
     { "name": "Vender", "short_name": "Vender", "url": "./vender", "icons": [{ "src": "icons/icon-96x96.png", "sizes": "96x96" }] },

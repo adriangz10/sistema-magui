@@ -15,7 +15,7 @@ import { ModalComponent } from './modal.component';
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <app-modal [abierto]="abierto()" [titulo]="titulo()" (cerrar)="cerrar.emit()">
-      @if (descripcion()) { <p class="mb-3 text-sm text-ink-600 dark:text-ink-300">{{ descripcion() }}</p> }
+      @if (descripcion()) { <p class="mb-3 text-sm text-muted">{{ descripcion() }}</p> }
       <app-campo etiqueta="Motivo" [para]="idCampo" [error]="error() || errorLocal()">
         <textarea [id]="idCampo" class="input min-h-20 py-2" maxlength="255" [(ngModel)]="motivo" [placeholder]="placeholder()"
                   [attr.aria-invalid]="error() || errorLocal() ? true : null"

@@ -16,7 +16,7 @@ import { MENU } from './navegacion';
   imports: [RouterOutlet, RouterLink, RouterLinkActive, LucideAngularModule],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
-    <a href="#contenido" class="sr-only z-50 rounded-lg bg-brand-600 px-4 py-2 text-white focus:not-sr-only focus:fixed focus:top-2 focus:left-2">
+    <a href="#contenido" class="sr-only z-50 rounded-lg bg-ink-900 px-4 py-2 text-white focus:not-sr-only focus:fixed focus:top-2 focus:left-2">
       Saltar al contenido
     </a>
 
@@ -24,17 +24,17 @@ import { MENU } from './navegacion';
       <!-- Menú lateral (pantallas grandes) -->
       <aside class="sticky top-0 hidden h-screen w-64 shrink-0 flex-col border-r border-ink-200 bg-white lg:flex dark:border-ink-800 dark:bg-ink-900">
         <div class="flex items-center gap-3 px-5 py-5">
-          <div class="flex size-9 items-center justify-center rounded-xl bg-brand-600 font-bold text-white shadow">M</div>
+          <div class="flex size-9 items-center justify-center rounded-lg bg-ink-900 font-semibold text-white dark:bg-ink-100 dark:text-ink-900">M</div>
           <div>
             <p class="font-semibold leading-tight">Magui</p>
-            <p class="text-xs text-ink-500">Cosmética</p>
+            <p class="text-xs text-muted">Cosmética</p>
           </div>
         </div>
         <nav class="flex-1 space-y-1 overflow-y-auto px-3" aria-label="Principal">
           @for (item of menu; track item.ruta) {
-            <a [routerLink]="item.ruta" routerLinkActive="bg-brand-50 text-brand-700 dark:bg-brand-950 dark:text-brand-200"
+            <a [routerLink]="item.ruta" routerLinkActive="bg-ink-100 text-ink-900 dark:bg-ink-800 dark:text-ink-50"
                ariaCurrentWhenActive="page"
-               class="flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium text-ink-600 transition hover:bg-ink-100 dark:text-ink-300 dark:hover:bg-ink-800">
+               class="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-ink-600 transition-colors duration-150 hover:bg-ink-50 dark:text-ink-300 dark:hover:bg-ink-800/60">
               <lucide-icon [img]="item.icono" [size]="18" aria-hidden="true" />
               {{ item.etiqueta }}
             </a>
@@ -49,9 +49,9 @@ import { MENU } from './navegacion';
 
       <div class="flex min-w-0 flex-1 flex-col">
         <!-- Barra superior -->
-        <header class="sticky top-0 z-30 flex h-14 items-center gap-3 border-b border-ink-200 bg-white/85 px-4 backdrop-blur lg:px-8 dark:border-ink-800 dark:bg-ink-900/85">
+        <header class="sticky top-0 z-30 flex h-14 items-center gap-3 border-b border-ink-200 bg-white px-4 lg:px-8 dark:border-ink-800 dark:bg-ink-900">
           <div class="flex items-center gap-2 lg:hidden">
-            <div class="flex size-8 items-center justify-center rounded-lg bg-brand-600 text-sm font-bold text-white">M</div>
+            <div class="flex size-8 items-center justify-center rounded-lg bg-ink-900 text-sm font-semibold text-white dark:bg-ink-100 dark:text-ink-900">M</div>
             <span class="font-semibold">Magui</span>
           </div>
           <div class="flex-1"></div>
@@ -63,7 +63,7 @@ import { MENU } from './navegacion';
             </span>
           }
           <span class="flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium"
-                [class]="conexion.enLinea() ? 'bg-green-50 text-ok dark:bg-green-950 dark:text-green-300' : 'bg-amber-50 text-warn dark:bg-amber-950 dark:text-amber-300'"
+                [class]="conexion.enLinea() ? 'bg-ink-100 text-ink-700 dark:bg-ink-800 dark:text-ink-300' : 'bg-warn-soft text-warn'"
                 role="status">
             <lucide-icon [img]="conexion.enLinea() ? iconos.enLinea : iconos.sinConexion" [size]="14" aria-hidden="true" />
             {{ conexion.enLinea() ? 'En línea' : 'Sin conexión' }}
@@ -75,7 +75,7 @@ import { MENU } from './navegacion';
         </header>
 
         @if (!conexion.enLinea()) {
-          <div class="border-b border-amber-200 bg-amber-50 px-4 py-2 text-center text-sm text-warn lg:px-8 dark:border-amber-900 dark:bg-amber-950 dark:text-amber-300" role="status">
+          <div class="aviso-warn rounded-none border-x-0 border-t-0 px-4 text-center lg:px-8" role="status">
             @if (escritorio.activo) {
               Sin conexión: podés seguir vendiendo; las ventas se suben solas cuando vuelva internet. El resto de las pantallas necesita conexión.
             } @else {
@@ -84,12 +84,12 @@ import { MENU } from './navegacion';
           </div>
         }
         @if (escritorio.rechazadas() > 0) {
-          <div class="flex items-center justify-center gap-2 border-b border-red-200 bg-red-50 px-4 py-2 text-sm text-danger lg:px-8 dark:border-red-900 dark:bg-red-950 dark:text-red-300" role="alert">
+          <div class="flex items-center justify-center gap-2 aviso-danger rounded-none border-x-0 border-t-0 px-4 lg:px-8" role="alert">
             <lucide-icon [img]="iconos.alerta" [size]="16" aria-hidden="true" />
             El servidor no aceptó {{ escritorio.rechazadas() === 1 ? '1 venta cobrada' : escritorio.rechazadas() + ' ventas cobradas' }} en esta PC. Revisalas con soporte.
           </div>
         } @else if (escritorio.necesitaIngresar() && escritorio.pendientes() > 0) {
-          <div class="border-b border-amber-200 bg-amber-50 px-4 py-2 text-center text-sm text-warn lg:px-8 dark:border-amber-900 dark:bg-amber-950 dark:text-amber-300" role="status">
+          <div class="aviso-warn rounded-none border-x-0 border-t-0 px-4 text-center lg:px-8" role="status">
             Para subir las ventas pendientes, salí e ingresá de nuevo con conexión.
           </div>
         }
@@ -103,13 +103,13 @@ import { MENU } from './navegacion';
     <nav class="fixed inset-x-0 bottom-0 z-40 grid grid-cols-5 border-t border-ink-200 bg-white pb-[env(safe-area-inset-bottom)] lg:hidden dark:border-ink-800 dark:bg-ink-900"
          aria-label="Principal">
       @for (item of menuMovil; track item.ruta) {
-        <a [routerLink]="item.ruta" routerLinkActive="text-brand-600 dark:text-brand-300" ariaCurrentWhenActive="page"
-           class="flex flex-col items-center gap-0.5 py-2 text-[11px] font-medium text-ink-500">
+        <a [routerLink]="item.ruta" routerLinkActive="font-semibold text-ink-900 dark:text-ink-50" ariaCurrentWhenActive="page"
+           class="flex flex-col items-center gap-0.5 py-2 text-[11px] font-medium text-muted">
           <lucide-icon [img]="item.icono" [size]="22" aria-hidden="true" />
           {{ item.etiqueta }}
         </a>
       }
-      <button type="button" class="flex flex-col items-center gap-0.5 py-2 text-[11px] font-medium text-ink-500"
+      <button type="button" class="flex flex-col items-center gap-0.5 py-2 text-[11px] font-medium text-muted"
               (click)="masAbierto.set(true)" [attr.aria-expanded]="masAbierto()" aria-controls="menu-mas">
         <lucide-icon [img]="iconos.mas" [size]="22" aria-hidden="true" /> Más
       </button>
@@ -117,8 +117,8 @@ import { MENU } from './navegacion';
 
     <!-- Menú "Más" (celular) -->
     @if (masAbierto()) {
-      <div class="fixed inset-0 z-50 bg-ink-950/50 lg:hidden" (click)="masAbierto.set(false)" aria-hidden="true"></div>
-      <div id="menu-mas" class="fixed inset-x-0 bottom-0 z-50 rounded-t-3xl bg-white p-4 pb-[calc(1rem+env(safe-area-inset-bottom))] shadow-2xl lg:hidden dark:bg-ink-900"
+      <div class="fixed inset-0 z-50 bg-ink-950/40 lg:hidden" (click)="masAbierto.set(false)" aria-hidden="true"></div>
+      <div id="menu-mas" class="fixed inset-x-0 bottom-0 z-50 rounded-t-2xl bg-white p-4 pb-[calc(1rem+env(safe-area-inset-bottom))] shadow-md lg:hidden dark:bg-ink-900"
            role="dialog" aria-modal="true" aria-label="Más secciones">
         <div class="mb-2 flex items-center justify-between">
           <p class="font-semibold">Más secciones</p>
@@ -129,13 +129,13 @@ import { MENU } from './navegacion';
         <div class="grid grid-cols-3 gap-2">
           @for (item of menu; track item.ruta) {
             <a [routerLink]="item.ruta" (click)="masAbierto.set(false)"
-               class="flex flex-col items-center gap-1.5 rounded-2xl p-3 text-xs font-medium text-ink-700 hover:bg-ink-100 dark:text-ink-200 dark:hover:bg-ink-800">
+               class="flex flex-col items-center gap-1.5 rounded-lg p-3 text-xs font-medium text-ink-700 hover:bg-ink-100 dark:text-ink-200 dark:hover:bg-ink-800">
               <lucide-icon [img]="item.icono" [size]="22" aria-hidden="true" />
               {{ item.etiqueta }}
             </a>
           }
           <button type="button" (click)="salir()"
-                  class="flex flex-col items-center gap-1.5 rounded-2xl p-3 text-xs font-medium text-danger hover:bg-red-50 dark:hover:bg-red-950">
+                  class="flex flex-col items-center gap-1.5 rounded-lg p-3 text-xs font-medium text-danger hover:bg-danger-soft">
             <lucide-icon [img]="iconos.salir" [size]="22" aria-hidden="true" /> Salir
           </button>
         </div>

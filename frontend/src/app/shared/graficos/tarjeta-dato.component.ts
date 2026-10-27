@@ -9,15 +9,15 @@ import { ChangeDetectionStrategy, Component, computed, input } from '@angular/co
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: { class: 'card block p-5' },
   template: `
-    <p class="text-sm text-ink-500">{{ etiqueta() }}</p>
+    <p class="text-sm text-muted">{{ etiqueta() }}</p>
     <p class="mt-1 font-semibold tracking-tight" [class]="destacado() ? 'text-4xl sm:text-5xl' : 'text-2xl'">{{ valor() }}</p>
     @if (variacion() !== null && variacion() !== undefined) {
-      <p class="mt-1 text-sm" [class]="sube() ? 'text-ok dark:text-green-400' : 'text-danger dark:text-red-400'">
+      <p class="mt-1 text-sm" [class]="sube() ? 'text-ok' : 'text-danger'">
         <span aria-hidden="true">{{ sube() ? '▲' : '▼' }}</span>
         {{ variacionTexto() }} {{ comparacion() }}
       </p>
     } @else if (detalle()) {
-      <p class="mt-1 text-sm text-ink-500">{{ detalle() }}</p>
+      <p class="mt-1 text-sm text-muted">{{ detalle() }}</p>
     }
   `,
 })

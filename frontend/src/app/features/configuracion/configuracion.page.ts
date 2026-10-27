@@ -24,7 +24,7 @@ import { EncabezadoComponent } from '../../shared/ui/encabezado.component';
     <div class="grid items-start gap-6 lg:grid-cols-2">
       <section class="card p-5" aria-labelledby="titulo-clave">
         <h2 id="titulo-clave" class="font-semibold">Cambiar contraseña</h2>
-        <p class="mb-4 text-sm text-ink-500">Al cambiarla se cierra la sesión en los demás dispositivos.</p>
+        <p class="mb-4 text-sm text-muted">Al cambiarla se cierra la sesión en los demás dispositivos.</p>
         <form class="space-y-4" (ngSubmit)="cambiarClave()">
           <app-campo etiqueta="Contraseña actual" para="cl-actual" [error]="errores()['actual']">
             <input id="cl-actual" name="actual" type="password" class="input" autocomplete="current-password" [(ngModel)]="actual"
@@ -47,21 +47,21 @@ import { EncabezadoComponent } from '../../shared/ui/encabezado.component';
         <section class="card p-5" aria-labelledby="titulo-instalar">
           <h2 id="titulo-instalar" class="font-semibold">App en este dispositivo</h2>
           @if (instalacion.instalada()) {
-            <p class="mt-1 text-sm text-ok dark:text-green-400">✓ Ya la estás usando como app instalada.</p>
+            <p class="mt-1 text-sm text-ok">✓ Ya la estás usando como app instalada.</p>
           } @else if (instalacion.puedeInstalar()) {
-            <p class="mt-1 mb-3 text-sm text-ink-500">Instalala para abrirla desde un ícono, en pantalla completa, como cualquier app.</p>
+            <p class="mt-1 mb-3 text-sm text-muted">Instalala para abrirla desde un ícono, en pantalla completa, como cualquier app.</p>
             <button type="button" class="btn-primario" (click)="instalar()">Instalar Magui</button>
           } @else if (instalacion.esIOS) {
-            <p class="mt-1 text-sm text-ink-500">En iPhone o iPad: tocá <strong>Compartir</strong> (el cuadrado con la flecha) y elegí <strong>Agregar a inicio</strong>.</p>
+            <p class="mt-1 text-sm text-muted">En iPhone o iPad: tocá <strong>Compartir</strong> (el cuadrado con la flecha) y elegí <strong>Agregar a inicio</strong>.</p>
           } @else {
-            <p class="mt-1 text-sm text-ink-500">Desde el celular, abrí el menú del navegador y elegí <strong>Instalar app</strong> o <strong>Agregar a la pantalla de inicio</strong>.</p>
+            <p class="mt-1 text-sm text-muted">Desde el celular, abrí el menú del navegador y elegí <strong>Instalar app</strong> o <strong>Agregar a la pantalla de inicio</strong>.</p>
           }
         </section>
         }
 
         <section class="card p-5" aria-labelledby="titulo-venc">
           <h2 id="titulo-venc" class="font-semibold">Aviso de vencimientos</h2>
-          <p class="mb-4 text-sm text-ink-500">Con cuántos días de anticipación se marca un producto como "por vencer".</p>
+          <p class="mb-4 text-sm text-muted">Con cuántos días de anticipación se marca un producto como "por vencer".</p>
           <form class="flex items-end gap-2" (ngSubmit)="guardarDias()">
             <app-campo class="flex-1" etiqueta="Días de anticipación" para="cf-dias" [error]="errorDias()">
               <input id="cf-dias" name="dias" type="number" min="1" max="365" inputmode="numeric" class="input" [(ngModel)]="dias"
@@ -75,8 +75,8 @@ import { EncabezadoComponent } from '../../shared/ui/encabezado.component';
           <h2 id="titulo-apariencia" class="font-semibold">Apariencia</h2>
           <div class="mt-3 flex gap-2" role="group" aria-label="Tema">
             @for (t of temas; track t.id) {
-              <button type="button" class="btn flex-1" [attr.aria-pressed]="tema.tema() === t.id"
-                      [class]="tema.tema() === t.id ? 'bg-ink-900 text-white dark:bg-ink-100 dark:text-ink-900' : 'ring-1 ring-ink-200 dark:ring-ink-700'"
+              <button type="button" class="chip flex-1" [attr.aria-pressed]="tema.tema() === t.id"
+                      [class.chip-activo]="tema.tema() === t.id"
                       (click)="tema.tema() !== t.id && tema.alternar()">{{ t.etiqueta }}</button>
             }
           </div>
@@ -84,8 +84,8 @@ import { EncabezadoComponent } from '../../shared/ui/encabezado.component';
 
         <section class="card p-5 text-sm" aria-labelledby="titulo-sistema">
           <h2 id="titulo-sistema" class="mb-2 font-semibold">Sistema</h2>
-          <dl class="space-y-1 text-ink-600 dark:text-ink-300">
-            <div class="flex justify-between"><dt>Servidor</dt><dd>{{ estadoServidor() }}</dd></div>
+          <dl class="space-y-1 text-muted">
+            <div class="flex justify-between"><dt>Servidor</dt><dd [class.text-danger]="estadoServidor() === 'Con problemas' || estadoServidor() === 'Sin conexión'">{{ estadoServidor() }}</dd></div>
             <div class="flex justify-between"><dt>Versión</dt><dd>{{ version() || '—' }}</dd></div>
           </dl>
         </section>

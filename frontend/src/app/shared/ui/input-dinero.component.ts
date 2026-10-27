@@ -16,7 +16,7 @@ import { formatearNumero, interpretarDinero } from '../formato/dinero';
   providers: [{ provide: NG_VALUE_ACCESSOR, useExisting: forwardRef(() => InputDineroComponent), multi: true }],
   template: `
     <div class="relative">
-      <span class="pointer-events-none absolute inset-y-0 left-3 flex items-center text-sm text-ink-400" aria-hidden="true">$</span>
+      <span class="pointer-events-none absolute inset-y-0 left-3 flex items-center text-sm text-muted" aria-hidden="true">$</span>
       <input type="text" inputmode="decimal" autocomplete="off" class="input pl-7 text-right tabular-nums"
              [id]="idCampo()" [placeholder]="placeholder()" [disabled]="deshabilitado()" [value]="texto()"
              [attr.aria-invalid]="invalido() || null" [attr.aria-describedby]="describedBy() || null"

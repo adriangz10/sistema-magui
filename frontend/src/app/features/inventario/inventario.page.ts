@@ -26,21 +26,21 @@ type FiltroVenc = 'vencidos' | 'por_vencer' | 'todos';
 
     @if (alertas(); as a) {
       <div class="mb-6 grid grid-cols-2 gap-3 lg:grid-cols-4">
-        <button type="button" class="card p-4 text-left transition hover:border-red-300" (click)="verVencimientos('vencidos')">
-          <p class="text-sm text-ink-500">Lotes vencidos</p>
-          <p class="mt-1 text-2xl font-bold" [class]="a.vencidos ? 'text-danger dark:text-red-400' : ''">{{ a.vencidos }}</p>
+        <button type="button" class="card p-4 text-left transition hover:border-ink-300" (click)="verVencimientos('vencidos')">
+          <p class="text-sm text-muted">Lotes vencidos</p>
+          <p class="mt-1 text-2xl font-semibold" [class]="a.vencidos ? 'text-danger' : ''">{{ a.vencidos }}</p>
         </button>
-        <button type="button" class="card p-4 text-left transition hover:border-amber-300" (click)="verVencimientos('por_vencer')">
-          <p class="text-sm text-ink-500">Por vencer ({{ a.diasAlerta }} días)</p>
-          <p class="mt-1 text-2xl font-bold" [class]="a.porVencer ? 'text-warn dark:text-amber-300' : ''">{{ a.porVencer }}</p>
+        <button type="button" class="card p-4 text-left transition hover:border-ink-300" (click)="verVencimientos('por_vencer')">
+          <p class="text-sm text-muted">Por vencer ({{ a.diasAlerta }} días)</p>
+          <p class="mt-1 text-2xl font-semibold" [class]="a.porVencer ? 'text-warn' : ''">{{ a.porVencer }}</p>
         </button>
         <div class="card p-4">
-          <p class="text-sm text-ink-500">Productos sin stock</p>
-          <p class="mt-1 text-2xl font-bold" [class]="a.sinStock ? 'text-danger dark:text-red-400' : ''">{{ a.sinStock }}</p>
+          <p class="text-sm text-muted">Productos sin stock</p>
+          <p class="mt-1 text-2xl font-semibold" [class]="a.sinStock ? 'text-danger' : ''">{{ a.sinStock }}</p>
         </div>
         <div class="card p-4">
-          <p class="text-sm text-ink-500">Con stock bajo</p>
-          <p class="mt-1 text-2xl font-bold" [class]="a.stockBajo ? 'text-warn dark:text-amber-300' : ''">{{ a.stockBajo }}</p>
+          <p class="text-sm text-muted">Con stock bajo</p>
+          <p class="mt-1 text-2xl font-semibold" [class]="a.stockBajo ? 'text-warn' : ''">{{ a.stockBajo }}</p>
         </div>
       </div>
     }
@@ -49,7 +49,7 @@ type FiltroVenc = 'vencidos' | 'por_vencer' | 'todos';
       @for (p of pestanas; track p.id) {
         <button type="button" role="tab" [id]="'tab-' + p.id" [attr.aria-selected]="pestana() === p.id" [attr.aria-controls]="'panel-' + p.id"
                 class="-mb-px border-b-2 px-4 py-2.5 text-sm font-medium whitespace-nowrap transition"
-                [class]="pestana() === p.id ? 'border-brand-600 text-brand-700 dark:text-brand-300' : 'border-transparent text-ink-500 hover:text-ink-800 dark:hover:text-ink-200'"
+                [class]="pestana() === p.id ? 'border-ink-900 text-ink-900 dark:border-ink-100 dark:text-ink-50' : 'border-transparent text-muted hover:text-ink-800 dark:hover:text-ink-200'"
                 (click)="cambiarPestana(p.id)">{{ p.etiqueta }}</button>
       }
     </div>
@@ -59,8 +59,8 @@ type FiltroVenc = 'vencidos' | 'por_vencer' | 'todos';
         <div id="panel-vencimientos" role="tabpanel" aria-labelledby="tab-vencimientos">
           <div class="mb-3 flex flex-wrap gap-2" role="group" aria-label="Filtrar vencimientos">
             @for (f of filtrosVenc; track f.id) {
-              <button type="button" class="btn min-h-9 rounded-full px-4" [attr.aria-pressed]="filtroVenc() === f.id"
-                      [class]="filtroVenc() === f.id ? 'bg-ink-900 text-white dark:bg-ink-100 dark:text-ink-900' : 'bg-white text-ink-700 ring-1 ring-ink-200 dark:bg-ink-900 dark:text-ink-200 dark:ring-ink-700'"
+              <button type="button" class="chip px-4" [attr.aria-pressed]="filtroVenc() === f.id"
+                      [class.chip-activo]="filtroVenc() === f.id"
                       (click)="verVencimientos(f.id)">{{ f.etiqueta }}</button>
             }
           </div>
@@ -72,7 +72,7 @@ type FiltroVenc = 'vencidos' | 'por_vencer' | 'todos';
               <tbody>
                 @for (v of vencimientos()?.items; track v.loteId) {
                   <tr>
-                    <td><p class="font-medium">{{ v.producto }}</p><p class="text-xs text-ink-500">{{ v.sku }}</p></td>
+                    <td><p class="font-medium">{{ v.producto }}</p><p class="text-xs text-muted">{{ v.sku }}</p></td>
                     <td class="whitespace-nowrap">{{ v.vencimiento | fecha }}</td>
                     <td><span [class]="claseEstado(v.estado)">{{ textoEstado(v.estado, v.diasRestantes) }}</span></td>
                     <td class="text-right font-semibold tabular-nums">{{ v.stock }}</td>
@@ -117,12 +117,12 @@ type FiltroVenc = 'vencidos' | 'por_vencer' | 'todos';
                 @for (m of movimientos()?.items; track m.id) {
                   <tr>
                     <td class="whitespace-nowrap">{{ m.fecha | fecha }}</td>
-                    <td><p class="font-medium">{{ m.producto }}</p><p class="text-xs text-ink-500">{{ m.sku }}</p></td>
+                    <td><p class="font-medium">{{ m.producto }}</p><p class="text-xs text-muted">{{ m.sku }}</p></td>
                     <td><span class="badge-neutro">{{ nombreTipo(m.tipo) }}</span></td>
-                    <td class="text-right font-semibold tabular-nums" [class]="m.cantidad > 0 ? 'text-ok dark:text-green-400' : 'text-danger dark:text-red-400'">
+                    <td class="text-right font-semibold tabular-nums" [class]="m.cantidad > 0 ? 'text-ink-900 dark:text-ink-100' : 'text-danger'">
                       {{ m.cantidad > 0 ? '+' : '' }}{{ m.cantidad }}
                     </td>
-                    <td class="text-ink-500">{{ m.nota || (m.loteVencimiento ? 'Lote que vence el ' + (m.loteVencimiento | fecha) : '—') }}</td>
+                    <td class="text-muted">{{ m.nota || (m.loteVencimiento ? 'Lote que vence el ' + (m.loteVencimiento | fecha) : '—') }}</td>
                   </tr>
                 }
               </tbody>

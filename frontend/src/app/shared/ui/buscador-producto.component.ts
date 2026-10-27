@@ -18,41 +18,41 @@ import { DineroPipe } from '../../shared/formato/dinero';
   template: `
     <label [for]="idCampo()" class="sr-only">{{ etiqueta() }}</label>
     <div class="relative">
-      <lucide-icon [img]="iconos.escanear" [size]="20" class="pointer-events-none absolute top-1/2 left-3 -translate-y-1/2 text-ink-400" aria-hidden="true" />
+      <lucide-icon [img]="iconos.escanear" [size]="20" class="pointer-events-none absolute top-1/2 left-3 -translate-y-1/2 text-muted" aria-hidden="true" />
       <input #campo [id]="idCampo()" type="search" autocomplete="off" spellcheck="false"
-             class="input pr-10 pl-10" [class]="compacto() ? '' : 'h-12 text-base'"
+             class="input pr-10 pl-12" [class]="compacto() ? '' : 'h-12 text-base'"
              [placeholder]="placeholder()"
              role="combobox" aria-autocomplete="list" [attr.aria-controls]="idCampo() + '-sugerencias'"
              [attr.aria-expanded]="abierto()" [attr.aria-activedescendant]="activa() >= 0 ? idCampo() + '-sug-' + activa() : null"
              [value]="texto()" (input)="alEscribir($any($event.target).value)" (keydown)="teclas($event)"
              (blur)="cerrarLuego()" />
       @if (buscando()) {
-        <lucide-icon [img]="iconos.cargando" [size]="18" class="absolute top-1/2 right-3 -translate-y-1/2 animate-spin text-ink-400" aria-hidden="true" />
+        <lucide-icon [img]="iconos.cargando" [size]="18" class="absolute top-1/2 right-3 -translate-y-1/2 animate-spin text-muted" aria-hidden="true" />
       }
     </div>
 
     @if (abierto()) {
       <ul [id]="idCampo() + '-sugerencias'" role="listbox" aria-label="Productos encontrados"
-          class="absolute inset-x-0 top-full z-20 mt-1 max-h-96 overflow-y-auto rounded-xl border border-ink-200 bg-white py-1 shadow-xl dark:border-ink-700 dark:bg-ink-900">
+          class="absolute inset-x-0 top-full z-20 mt-1 max-h-96 overflow-y-auto rounded-xl border border-ink-200 bg-white py-1 shadow-md dark:border-ink-700 dark:bg-ink-900">
         @for (p of sugerencias(); track p.id; let i = $index) {
           <li [id]="idCampo() + '-sug-' + i" role="option" [attr.aria-selected]="i === activa()"
               class="flex cursor-pointer items-center gap-3 px-3 py-2.5"
-              [class]="i === activa() ? 'bg-brand-50 dark:bg-brand-950' : 'hover:bg-ink-50 dark:hover:bg-ink-800'"
+              [class]="i === activa() ? 'bg-ink-100 dark:bg-ink-800' : 'hover:bg-ink-50 dark:hover:bg-ink-800'"
               (mousedown)="$event.preventDefault(); elegir(p)">
             <div class="min-w-0 flex-1">
               <p class="truncate text-sm font-medium">
                 {{ p.nombre }}
                 @if (p.tipo === 'COMBO') { <span class="badge-neutro ml-1">Combo</span> }
               </p>
-              <p class="text-xs text-ink-500">{{ p.sku }}{{ p.codigoBarras ? ' · ' + p.codigoBarras : '' }}</p>
+              <p class="text-xs text-muted">{{ p.sku }}{{ p.codigoBarras ? ' · ' + p.codigoBarras : '' }}</p>
             </div>
             <div class="text-right">
               <p class="text-sm font-semibold tabular-nums">{{ p.precioVenta | dinero }}</p>
-              <p class="text-xs" [class]="p.stock > 0 ? 'text-ink-500' : 'text-danger dark:text-red-400'">Stock: {{ p.stock }}</p>
+              <p class="text-xs" [class]="p.stock > 0 ? 'text-muted' : 'text-danger'">Stock: {{ p.stock }}</p>
             </div>
           </li>
         } @empty {
-          <li class="px-3 py-4 text-center text-sm text-ink-500">No se encontraron productos activos</li>
+          <li class="px-3 py-4 text-center text-sm text-muted">No se encontraron productos activos</li>
         }
       </ul>
     }

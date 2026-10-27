@@ -23,19 +23,19 @@ export interface FilaBarra {
           <li>
             <div class="mb-1 flex items-baseline justify-between gap-3 text-sm">
               <span class="min-w-0 truncate" [title]="f.etiqueta">
-                @if (numerada()) { <span class="mr-1 text-ink-400 tabular-nums">{{ i + 1 }}.</span> }{{ f.etiqueta }}
+                @if (numerada()) { <span class="mr-1 text-muted tabular-nums">{{ i + 1 }}.</span> }{{ f.etiqueta }}
               </span>
               <span class="shrink-0 font-medium tabular-nums">{{ f.texto }}</span>
             </div>
             <div class="h-2 rounded-full bg-ink-100 dark:bg-ink-800" aria-hidden="true">
-              <div class="h-2 rounded-full bg-brand-600 dark:bg-brand-500" [style.width.%]="porcentaje(f.valor)"></div>
+              <div class="h-2 rounded-full bg-brand-600 dark:bg-brand-400" [style.width.%]="porcentaje(f.valor)"></div>
             </div>
-            @if (f.detalle) { <p class="mt-0.5 text-xs text-ink-500">{{ f.detalle }}</p> }
+            @if (f.detalle) { <p class="mt-0.5 text-xs text-muted">{{ f.detalle }}</p> }
           </li>
         }
       </ol>
     } @else {
-      <p class="py-6 text-center text-sm text-ink-500">{{ vacio() }}</p>
+      <p class="py-6 text-center text-sm text-muted">{{ vacio() }}</p>
     }
   `,
 })

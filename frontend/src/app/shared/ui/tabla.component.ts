@@ -26,7 +26,7 @@ import { PaginadorComponent } from './paginador.component';
           <div class="px-6 py-14 text-center">
             <p class="font-medium text-ink-700 dark:text-ink-200">{{ mensajeVacio() }}</p>
             @if (ayudaVacio()) {
-              <p class="mt-1 text-sm text-ink-500">{{ ayudaVacio() }}</p>
+              <p class="mt-1 text-sm text-muted">{{ ayudaVacio() }}</p>
             }
           </div>
         } @else {

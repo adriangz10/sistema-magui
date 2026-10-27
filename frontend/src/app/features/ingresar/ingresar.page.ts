@@ -11,28 +11,28 @@ import { AuthService } from '../../core/auth/auth.service';
   imports: [ReactiveFormsModule, LucideAngularModule],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
-    <main class="flex min-h-full items-center justify-center bg-gradient-to-br from-brand-50 via-white to-ink-100 p-4 dark:from-brand-950 dark:via-ink-950 dark:to-ink-900">
+    <main class="flex min-h-full items-center justify-center bg-ink-50 p-4 dark:bg-ink-950">
       <div class="w-full max-w-sm">
         <div class="mb-8 text-center">
-          <div class="mx-auto flex size-14 items-center justify-center rounded-2xl bg-brand-600 text-2xl font-bold text-white shadow-lg">M</div>
+          <div class="mx-auto flex size-12 items-center justify-center rounded-xl bg-ink-900 text-xl font-semibold text-white dark:bg-ink-100 dark:text-ink-900">M</div>
           <h1 class="mt-4 text-2xl font-semibold tracking-tight">Sistema Magui</h1>
-          <p class="mt-1 text-sm text-ink-500">Ingresá para continuar</p>
+          <p class="mt-1 text-sm text-muted">Ingresá para continuar</p>
         </div>
 
-        <form class="card space-y-4 p-6" [formGroup]="form" (ngSubmit)="ingresar()" novalidate>
+        <form class="card space-y-4 p-6 sm:p-8" [formGroup]="form" (ngSubmit)="ingresar()" novalidate>
           <div>
             <label for="clave" class="etiqueta">Contraseña</label>
             <div class="relative">
               <input id="clave" [type]="mostrar() ? 'text' : 'password'" class="input pr-11" formControlName="clave"
                      autocomplete="current-password" autofocus
                      [attr.aria-invalid]="error() ? true : null" [attr.aria-describedby]="error() ? 'clave-error' : null" />
-              <button type="button" class="absolute inset-y-0 right-0 flex w-11 items-center justify-center text-ink-400 hover:text-ink-600"
+              <button type="button" class="absolute inset-y-0 right-0 flex w-11 items-center justify-center text-muted hover:text-ink-900 dark:hover:text-ink-100"
                       (click)="mostrar.set(!mostrar())" [attr.aria-label]="mostrar() ? 'Ocultar contraseña' : 'Mostrar contraseña'">
                 <lucide-icon [img]="mostrar() ? iconos.ocultar : iconos.ver" [size]="18" aria-hidden="true" />
               </button>
             </div>
             @if (error()) {
-              <p id="clave-error" class="mt-2 text-sm text-danger dark:text-red-400" role="alert">{{ error() }}</p>
+              <p id="clave-error" class="mt-2 text-sm text-danger" role="alert">{{ error() }}</p>
             }
           </div>
           <button type="submit" class="btn-primario w-full" [disabled]="enviando()">

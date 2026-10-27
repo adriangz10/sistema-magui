@@ -55,7 +55,7 @@ interface Componente {
       </div>
 
       @if (tipo() === 'COMBO') {
-        <fieldset class="rounded-2xl border border-ink-200 p-4 dark:border-ink-700">
+        <fieldset class="rounded-xl border border-ink-200 p-4 dark:border-ink-700">
           <legend class="px-1 text-sm font-medium">Productos del combo</legend>
           <app-buscador-producto idCampo="combo-buscar" etiqueta="Agregar producto al combo" [compacto]="true" tipo="SIMPLE"
                                  placeholder="Buscá o escaneá un producto para agregarlo" (elegido)="agregarComponente($event)" />
@@ -65,7 +65,7 @@ interface Componente {
                 <li class="flex items-center gap-3 py-2">
                   <div class="min-w-0 flex-1">
                     <p class="truncate text-sm font-medium">{{ c.nombre }}</p>
-                    <p class="text-xs text-ink-500">{{ c.sku }} · {{ c.precio | dinero }} c/u</p>
+                    <p class="text-xs text-muted">{{ c.sku }} · {{ c.precio | dinero }} c/u</p>
                   </div>
                   <div class="flex items-center gap-1">
                     <button type="button" class="btn-secundario btn-icono min-h-8 w-8" (click)="cambiarCantidad(c, -1)" [attr.aria-label]="'Una unidad menos de ' + c.nombre">
@@ -76,20 +76,20 @@ interface Componente {
                       <lucide-icon [img]="iconos.mas" [size]="14" aria-hidden="true" />
                     </button>
                   </div>
-                  <button type="button" class="btn-fantasma btn-icono min-h-8 w-8 text-ink-400 hover:text-danger" (click)="quitarComponente(c)" [attr.aria-label]="'Quitar ' + c.nombre">
+                  <button type="button" class="btn-fantasma btn-icono min-h-8 w-8 text-muted hover:text-danger" (click)="quitarComponente(c)" [attr.aria-label]="'Quitar ' + c.nombre">
                     <lucide-icon [img]="iconos.quitar" [size]="16" aria-hidden="true" />
                   </button>
                 </li>
               }
             </ul>
-            <p class="mt-2 text-sm text-ink-500">
+            <p class="mt-2 text-sm text-muted">
               Por separado: <strong class="tabular-nums">{{ precioSeparado() | dinero }}</strong>
-              @if (ahorro() > 0) { · el cliente ahorra <strong class="text-ok tabular-nums dark:text-green-400">{{ ahorroTexto() | dinero }}</strong> }
+              @if (ahorro() > 0) { · el cliente ahorra <strong class="text-ok tabular-nums">{{ ahorroTexto() | dinero }}</strong> }
             </p>
           } @else {
-            <p class="mt-3 text-sm text-ink-500">Agregá al menos 2 unidades en total (pueden ser del mismo producto).</p>
+            <p class="mt-3 text-sm text-muted">Agregá al menos 2 unidades en total (pueden ser del mismo producto).</p>
           }
-          @if (error('items')) { <p class="mt-2 text-sm text-danger dark:text-red-400" role="alert">{{ error('items') }}</p> }
+          @if (error('items')) { <p class="mt-2 text-sm text-danger" role="alert">{{ error('items') }}</p> }
         </fieldset>
       }
 
@@ -106,7 +106,7 @@ interface Componente {
       </div>
 
       <fieldset>
-        <legend class="etiqueta">Categorías <span class="font-normal text-ink-400">(opcional)</span></legend>
+        <legend class="etiqueta">Categorías <span class="font-normal text-muted">(opcional)</span></legend>
         <div class="max-h-48 overflow-y-auto rounded-xl border border-ink-200 p-2 dark:border-ink-700">
           @for (c of categoriasPlanas(); track c.id) {
             <label class="flex cursor-pointer items-center gap-2 rounded-lg px-2 py-1.5 text-sm hover:bg-ink-50 dark:hover:bg-ink-800" [style.padding-left.rem]="0.5 + c.nivel * 1.25">
@@ -114,7 +114,7 @@ interface Componente {
               {{ c.nombre }}
             </label>
           } @empty {
-            <p class="p-2 text-sm text-ink-500">Todavía no hay categorías. Creálas en la sección Categorías.</p>
+            <p class="p-2 text-sm text-muted">Todavía no hay categorías. Creálas en la sección Categorías.</p>
           }
         </div>
       </fieldset>

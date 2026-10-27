@@ -66,14 +66,14 @@ const NOMBRE_METODO: Record<MetodoPago, string> = { EFECTIVO: 'Efectivo', TRANSF
           @for (v of pagina()?.items; track v.id) {
             <tr>
               <td class="whitespace-nowrap">{{ v.fecha | fecha }}</td>
-              <td class="text-ink-500">{{ v.unidades }} {{ v.unidades === 1 ? 'unidad' : 'unidades' }} · {{ v.productos }} {{ v.productos === 1 ? 'producto' : 'productos' }}</td>
+              <td class="text-muted">{{ v.unidades }} {{ v.unidades === 1 ? 'unidad' : 'unidades' }} · {{ v.productos }} {{ v.productos === 1 ? 'producto' : 'productos' }}</td>
               <td>
                 <div class="flex flex-wrap gap-1">
                   @for (m of v.metodos; track m) { <span class="badge-neutro">{{ nombreMetodo(m) }}</span> }
                 </div>
               </td>
               <td class="text-right font-semibold tabular-nums" [class.line-through]="v.estado === 'ANULADA'">{{ v.total | dinero }}</td>
-              <td><span [class]="v.estado === 'ANULADA' ? 'badge-danger' : 'badge-ok'">{{ v.estado === 'ANULADA' ? 'Anulada' : 'Confirmada' }}</span></td>
+              <td><span [class]="v.estado === 'ANULADA' ? 'badge-danger' : 'badge-neutro'">{{ v.estado === 'ANULADA' ? 'Anulada' : 'Confirmada' }}</span></td>
               <td class="text-right">
                 <button type="button" class="btn-fantasma min-h-8 px-3" (click)="verDetalle(v)"
                         [attr.aria-label]="'Ver venta del ' + (v.fecha | fecha) + ' por ' + (v.total | dinero)">Ver</button>
@@ -87,13 +87,13 @@ const NOMBRE_METODO: Record<MetodoPago, string> = { EFECTIVO: 'Efectivo', TRANSF
     <!-- Detalle -->
     <app-modal [abierto]="!!detalle()" titulo="Detalle de la venta" ancho="grande" (cerrar)="detalle.set(null)">
       @if (detalle(); as d) {
-        <div class="mb-4 flex flex-wrap items-center gap-2 text-sm text-ink-500">
+        <div class="mb-4 flex flex-wrap items-center gap-2 text-sm text-muted">
           <span>{{ d.fecha | fecha }}</span>
-          <span [class]="d.estado === 'ANULADA' ? 'badge-danger' : 'badge-ok'">{{ d.estado === 'ANULADA' ? 'Anulada' : 'Confirmada' }}</span>
+          <span [class]="d.estado === 'ANULADA' ? 'badge-danger' : 'badge-neutro'">{{ d.estado === 'ANULADA' ? 'Anulada' : 'Confirmada' }}</span>
           <span class="badge-neutro">{{ d.origen === 'MOVIL' ? 'Celular' : d.origen === 'DESKTOP' ? 'Escritorio' : 'Web' }}</span>
         </div>
         @if (d.estado === 'ANULADA') {
-          <p class="mb-4 rounded-lg bg-red-50 px-3 py-2 text-sm text-danger dark:bg-red-950 dark:text-red-300">
+          <p class="aviso-danger mb-4">
             Anulada el {{ d.anuladaEn | fecha }}: {{ d.motivoAnulacion }}
           </p>
         }
@@ -103,7 +103,7 @@ const NOMBRE_METODO: Record<MetodoPago, string> = { EFECTIVO: 'Efectivo', TRANSF
             <tbody>
               @for (it of d.items; track it.productoId) {
                 <tr>
-                  <td><p class="font-medium">{{ it.producto }}</p><p class="text-xs text-ink-500">{{ it.sku }}{{ it.tipo === 'COMBO' ? ' · Combo' : '' }}</p></td>
+                  <td><p class="font-medium">{{ it.producto }}</p><p class="text-xs text-muted">{{ it.sku }}{{ it.tipo === 'COMBO' ? ' · Combo' : '' }}</p></td>
                   <td class="text-right tabular-nums">{{ it.cantidad }}</td>
                   <td class="text-right tabular-nums">{{ it.precioUnitario | dinero }}</td>
                   <td class="text-right font-medium tabular-nums">{{ it.subtotal | dinero }}</td>
@@ -118,7 +118,7 @@ const NOMBRE_METODO: Record<MetodoPago, string> = { EFECTIVO: 'Efectivo', TRANSF
             <ul class="space-y-1 text-sm">
               @for (p of d.pagos; track $index) {
                 <li class="flex justify-between">
-                  <span>{{ nombreMetodo(p.metodo) }}@if (p.montoRecibido) { <span class="text-ink-500"> (recibido {{ p.montoRecibido | dinero }}, vuelto {{ p.vuelto | dinero }})</span> }</span>
+                  <span>{{ nombreMetodo(p.metodo) }}@if (p.montoRecibido) { <span class="text-muted"> (recibido {{ p.montoRecibido | dinero }}, vuelto {{ p.vuelto | dinero }})</span> }</span>
                   <span class="tabular-nums">{{ p.monto | dinero }}</span>
                 </li>
               }
@@ -126,12 +126,12 @@ const NOMBRE_METODO: Record<MetodoPago, string> = { EFECTIVO: 'Efectivo', TRANSF
           </div>
           <dl class="space-y-1 text-sm">
             <div class="flex justify-between font-semibold"><dt>Total</dt><dd class="tabular-nums">{{ d.total | dinero }}</dd></div>
-            <div class="flex justify-between text-ink-500"><dt>Costo de la mercadería</dt><dd class="tabular-nums">{{ d.costoTotal | dinero }}</dd></div>
-            <div class="flex justify-between font-medium text-ok dark:text-green-400">
+            <div class="flex justify-between text-muted"><dt>Costo de la mercadería</dt><dd class="tabular-nums">{{ d.costoTotal | dinero }}</dd></div>
+            <div class="flex justify-between font-medium">
               <dt>Ganancia{{ d.costoCompleto ? '' : ' aproximada' }}</dt><dd class="tabular-nums">{{ d.ganancia | dinero }}</dd>
             </div>
             @if (!d.costoCompleto) {
-              <p class="pt-1 text-xs text-warn dark:text-amber-300">
+              <p class="pt-1 text-xs text-warn">
                 Algún producto de esta venta no tiene costo cargado, así que la ganancia real es menor.
                 Se completa sola cuando se registra una compra de ese producto.
               </p>

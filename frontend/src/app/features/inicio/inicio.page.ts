@@ -20,7 +20,7 @@ import { TarjetaDatoComponent } from '../../shared/graficos/tarjeta-dato.compone
     <div class="mb-6 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
       <div>
         <h1 class="titulo-pagina">{{ saludo() }}</h1>
-        <p class="mt-1 text-sm text-ink-500">Así va el día</p>
+        <p class="mt-1 text-sm text-muted">Así va el día</p>
       </div>
       <a routerLink="/vender" class="btn-primario h-12 px-6 text-base">
         <lucide-icon [img]="iconos.vender" [size]="20" aria-hidden="true" /> Vender
@@ -44,29 +44,29 @@ import { TarjetaDatoComponent } from '../../shared/graficos/tarjeta-dato.compone
     }
 
     @if (alertasVisibles(); as a) {
-      <a routerLink="/inventario" class="card mt-4 flex items-center gap-3 border-amber-200 bg-amber-50 p-4 text-sm transition hover:border-amber-300 dark:border-amber-900 dark:bg-amber-950">
-        <lucide-icon [img]="iconos.alerta" [size]="20" class="shrink-0 text-warn dark:text-amber-300" aria-hidden="true" />
+      <a routerLink="/inventario" class="card mt-4 flex items-center gap-3 border-warn-line bg-warn-soft p-4 text-sm transition-colors duration-150 hover:border-ink-300">
+        <lucide-icon [img]="iconos.alerta" [size]="20" class="shrink-0 text-warn" aria-hidden="true" />
         <span class="flex-1">
           <strong>Para revisar:</strong> {{ a }}
         </span>
-        <span class="font-medium text-warn dark:text-amber-300">Ver inventario →</span>
+        <span class="font-medium text-warn">Ver inventario →</span>
       </a>
     }
 
     <div class="mt-6 grid gap-6 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
       <section class="card p-5" aria-labelledby="titulo-semana">
         <h2 id="titulo-semana" class="font-semibold">Ventas de la semana</h2>
-        <p class="mb-4 text-sm text-ink-500">Total vendido por día, de lunes a domingo</p>
+        <p class="mb-4 text-sm text-muted">Total vendido por día, de lunes a domingo</p>
         @if (semana().length) {
           <app-grafico-columnas [datos]="columnasSemana()" titulo="Ventas de la semana por día" etiquetaX="Día" prefijo="$" />
         }
       </section>
       <section class="card p-5" aria-labelledby="titulo-top">
         <h2 id="titulo-top" class="font-semibold">Más vendidos de la semana</h2>
-        <p class="mb-4 text-sm text-ink-500">Por unidades</p>
+        <p class="mb-4 text-sm text-muted">Por unidades</p>
         <app-barras-horizontales [filas]="filasTop()" titulo="Más vendidos de la semana" [numerada]="true"
                                  vacio="Todavía no hay ventas esta semana" />
-        <a routerLink="/estadisticas" class="mt-4 inline-block text-sm font-medium text-brand-700 hover:underline dark:text-brand-300">Ver estadísticas completas →</a>
+        <a routerLink="/estadisticas" class="mt-4 inline-block text-sm font-medium text-brand-600 hover:underline dark:text-brand-300">Ver estadísticas completas →</a>
       </section>
     </div>
   `,

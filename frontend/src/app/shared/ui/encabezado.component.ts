@@ -9,7 +9,7 @@ import { ChangeDetectionStrategy, Component, input } from '@angular/core';
     <div>
       <h1 class="titulo-pagina">{{ titulo() }}</h1>
       @if (descripcion()) {
-        <p class="mt-1 text-sm text-ink-500">{{ descripcion() }}</p>
+        <p class="mt-1 text-sm text-muted">{{ descripcion() }}</p>
       }
     </div>
     <div class="flex flex-wrap gap-2">

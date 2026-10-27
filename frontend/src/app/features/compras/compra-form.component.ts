@@ -52,13 +52,13 @@ interface Renglon {
       @if (renglones().length) {
         <ul class="space-y-3" aria-label="Productos de la compra">
           @for (r of renglones(); track r.clave; let i = $index) {
-            <li class="rounded-2xl border border-ink-200 p-4 dark:border-ink-700">
+            <li class="rounded-xl border border-ink-200 p-4 dark:border-ink-700">
               <div class="mb-3 flex items-start justify-between gap-3">
                 <div class="min-w-0">
                   <p class="font-medium">{{ r.nombre }}</p>
-                  <p class="text-xs text-ink-500">{{ r.sku }} · precio actual {{ r.precioActual | dinero }}</p>
+                  <p class="text-xs text-muted">{{ r.sku }} · precio actual {{ r.precioActual | dinero }}</p>
                 </div>
-                <button type="button" class="btn-fantasma btn-icono -mt-1 -mr-2 text-ink-400 hover:text-danger" (click)="quitar(r)" [attr.aria-label]="'Quitar ' + r.nombre">
+                <button type="button" class="btn-fantasma btn-icono -mt-1 -mr-2 text-muted hover:text-danger" (click)="quitar(r)" [attr.aria-label]="'Quitar ' + r.nombre">
                   <lucide-icon [img]="iconoQuitar" [size]="18" aria-hidden="true" />
                 </button>
               </div>
@@ -76,20 +76,20 @@ interface Renglon {
                   <input [id]="'c-venc-' + r.clave" type="date" class="input" [(ngModel)]="r.vencimiento" />
                 </app-campo>
               </div>
-              <p class="mt-2 text-right text-sm text-ink-500">Subtotal <strong class="text-ink-900 tabular-nums dark:text-ink-100">{{ subtotal(r) | dinero }}</strong></p>
+              <p class="mt-2 text-right text-sm text-muted">Subtotal <strong class="text-ink-900 tabular-nums dark:text-ink-100">{{ subtotal(r) | dinero }}</strong></p>
             </li>
           }
         </ul>
       } @else {
-        <p class="rounded-2xl border border-dashed border-ink-300 px-6 py-10 text-center text-sm text-ink-500 dark:border-ink-700">
+        <p class="rounded-xl border border-dashed border-ink-300 px-6 py-10 text-center text-sm text-muted dark:border-ink-700">
           Agregá los productos que llegaron. Si un producto viene con dos vencimientos distintos, agregalo dos veces.
         </p>
       }
-      @if (errores()['items']) { <p class="text-sm text-danger dark:text-red-400" role="alert">{{ errores()['items'] }}</p> }
+      @if (errores()['items']) { <p class="text-sm text-danger" role="alert">{{ errores()['items'] }}</p> }
 
       <div class="flex flex-wrap items-center justify-between gap-3 border-t border-ink-100 pt-4 dark:border-ink-800">
         <p class="text-lg">Total de la compra <strong class="tabular-nums">{{ total() | dinero }}</strong>
-          <span class="text-sm text-ink-500">· {{ unidades() }} unidades</span></p>
+          <span class="text-sm text-muted">· {{ unidades() }} unidades</span></p>
         <div class="flex gap-2">
           <button type="button" class="btn-secundario" (click)="cancelado.emit()">Cancelar</button>
           <button type="button" class="btn-primario" [disabled]="guardando() || !renglones().length" (click)="guardar()">Registrar compra</button>

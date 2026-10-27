@@ -16,14 +16,14 @@ import { PaginadorComponent } from '../../shared/ui/paginador.component';
     <section class="card" aria-labelledby="titulo-empresas">
       <div class="border-b border-ink-100 p-4 dark:border-ink-800">
         <h2 id="titulo-empresas" class="font-semibold">Empresas</h2>
-        <p class="text-sm text-ink-500">A quién le comprás la mercadería. Es opcional en cada producto.</p>
+        <p class="text-sm text-muted">A quién le comprás la mercadería. Es opcional en cada producto.</p>
         <form class="mt-3 flex gap-2" (ngSubmit)="crear()">
           <label for="nueva-empresa" class="sr-only">Nombre de la nueva empresa</label>
           <input id="nueva-empresa" name="nueva" class="input" placeholder="Ej.: Avon" maxlength="100" [(ngModel)]="nueva"
                  [attr.aria-invalid]="error() ? true : null" [attr.aria-describedby]="error() ? 'nueva-empresa-error' : null" />
           <button type="submit" class="btn-primario shrink-0" [disabled]="!nueva.trim()">Agregar</button>
         </form>
-        @if (error()) { <p id="nueva-empresa-error" class="mt-1 text-sm text-danger dark:text-red-400" role="alert">{{ error() }}</p> }
+        @if (error()) { <p id="nueva-empresa-error" class="mt-1 text-sm text-danger" role="alert">{{ error() }}</p> }
       </div>
       <ul class="divide-y divide-ink-100 dark:divide-ink-800">
         @for (e of pagina()?.items; track e.id) {
@@ -34,7 +34,7 @@ import { PaginadorComponent } from '../../shared/ui/paginador.component';
               <button type="button" class="btn-primario min-h-9 px-3" (click)="guardar(e)">Guardar</button>
               <button type="button" class="btn-fantasma min-h-9 px-3" (click)="editando.set(null)">Cancelar</button>
             } @else {
-              <span class="flex-1" [class.text-ink-400]="!e.activo">{{ e.nombre }}</span>
+              <span class="flex-1" [class.text-muted]="!e.activo">{{ e.nombre }}</span>
               @if (!e.activo) { <span class="badge-neutro">Inactiva</span> }
               <button type="button" class="btn-fantasma min-h-8 px-3" (click)="empezarEdicion(e)" [attr.aria-label]="'Renombrar ' + e.nombre">Renombrar</button>
               <button type="button" class="btn-fantasma min-h-8 px-3" (click)="alternar(e)" [attr.aria-label]="(e.activo ? 'Desactivar ' : 'Activar ') + e.nombre">
@@ -43,7 +43,7 @@ import { PaginadorComponent } from '../../shared/ui/paginador.component';
             }
           </li>
         } @empty {
-          <li class="px-4 py-6 text-center text-sm text-ink-500">Todavía no hay empresas.</li>
+          <li class="px-4 py-6 text-center text-sm text-muted">Todavía no hay empresas.</li>
         }
       </ul>
       @if (pagina(); as p) {

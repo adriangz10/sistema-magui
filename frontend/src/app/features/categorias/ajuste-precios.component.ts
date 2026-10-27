@@ -25,7 +25,7 @@ const REDONDEOS = [
   imports: [FormsModule, DineroPipe, CampoComponent, PaginadorComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
-    <p class="mb-4 text-sm text-ink-500">Categoría: <strong class="text-ink-800 dark:text-ink-200">{{ categoria().ruta }}</strong>. Solo cambia productos activos.</p>
+    <p class="mb-4 text-sm text-muted">Categoría: <strong class="text-ink-800 dark:text-ink-200">{{ categoria().ruta }}</strong>. Solo cambia productos activos.</p>
 
     <div class="grid gap-4 sm:grid-cols-2">
       <fieldset class="sm:col-span-2">
@@ -33,7 +33,7 @@ const REDONDEOS = [
         <div class="flex gap-2">
           @for (t of tipos; track t.valor) {
             <label class="flex flex-1 cursor-pointer items-center gap-2 rounded-xl border px-3 py-2.5 text-sm"
-                   [class]="tipo() === t.valor ? 'border-brand-500 bg-brand-50 dark:bg-brand-950' : 'border-ink-200 dark:border-ink-700'">
+                   [class]="tipo() === t.valor ? 'border-brand-600 bg-brand-50 dark:border-brand-300 dark:bg-brand-950' : 'border-ink-200 dark:border-ink-700'">
               <input type="radio" name="tipo-ajuste" class="accent-brand-600" [value]="t.valor" [ngModel]="tipo()" (ngModelChange)="cambiar(() => tipo.set($event))" />
               {{ t.etiqueta }}
             </label>
@@ -65,16 +65,16 @@ const REDONDEOS = [
     </div>
 
     @if (previa(); as r) {
-      <div class="mt-4 rounded-2xl border border-ink-200 dark:border-ink-700">
+      <div class="mt-4 rounded-xl border border-ink-200 dark:border-ink-700">
         @if (r.cantidad === 0) {
-          <p class="p-6 text-center text-sm text-ink-500">Ningún producto cambia de precio con este ajuste.</p>
+          <p class="p-6 text-center text-sm text-muted">Ningún producto cambia de precio con este ajuste.</p>
         } @else {
           <p class="border-b border-ink-100 px-4 py-3 text-sm font-medium dark:border-ink-800">{{ r.cantidad }} productos van a cambiar</p>
           <ul class="divide-y divide-ink-100 dark:divide-ink-800">
             @for (p of paginaPrevia(); track p.productoId) {
               <li class="flex items-center justify-between gap-3 px-4 py-2 text-sm">
                 <span class="min-w-0 truncate">{{ p.nombre }}</span>
-                <span class="shrink-0 tabular-nums"><span class="text-ink-500 line-through">{{ p.precioAnterior | dinero }}</span> → <strong>{{ p.precioNuevo | dinero }}</strong></span>
+                <span class="shrink-0 tabular-nums"><span class="text-muted line-through">{{ p.precioAnterior | dinero }}</span> → <strong>{{ p.precioNuevo | dinero }}</strong></span>
               </li>
             }
           </ul>

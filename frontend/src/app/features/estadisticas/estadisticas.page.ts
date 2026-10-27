@@ -33,8 +33,8 @@ const NOMBRE_METODO: Record<string, string> = { EFECTIVO: 'Efectivo', TRANSFEREN
     <!-- Filtro de período: una sola fila arriba de todo -->
     <div class="mb-6 flex flex-wrap items-end gap-2" role="group" aria-label="Período">
       @for (p of periodos; track p.id) {
-        <button type="button" class="btn min-h-9 rounded-full px-4" [attr.aria-pressed]="periodo() === p.id"
-                [class]="periodo() === p.id ? 'bg-ink-900 text-white dark:bg-ink-100 dark:text-ink-900' : 'bg-white text-ink-700 ring-1 ring-ink-200 dark:bg-ink-900 dark:text-ink-200 dark:ring-ink-700'"
+        <button type="button" class="chip px-4" [attr.aria-pressed]="periodo() === p.id"
+                [class.chip-activo]="periodo() === p.id"
                 (click)="elegirPeriodo(p.id)">{{ p.etiqueta }}</button>
       }
       @if (periodo() === 'rango') {
@@ -62,35 +62,35 @@ const NOMBRE_METODO: Record<string, string> = { EFECTIVO: 'Efectivo', TRANSFEREN
         </div>
 
         @if (r.ventas.renglonesSinCosto) {
-          <p class="mt-4 rounded-xl bg-amber-50 px-4 py-3 text-sm text-warn dark:bg-amber-950 dark:text-amber-300" role="note">
+          <p class="aviso-warn mt-4" role="note">
             {{ r.ventas.renglonesSinCosto }} {{ r.ventas.renglonesSinCosto === 1 ? 'producto vendido no tenía' : 'productos vendidos no tenían' }}
             costo cargado: la ganancia real es menor que la que se muestra. Se completa sola al registrar compras de esos productos.
           </p>
         }
         @if (r.ventas.anuladas) {
-          <p class="mt-2 text-sm text-ink-500">{{ r.ventas.anuladas }} {{ r.ventas.anuladas === 1 ? 'venta anulada' : 'ventas anuladas' }} en el período (no se cuentan).</p>
+          <p class="mt-2 text-sm text-muted">{{ r.ventas.anuladas }} {{ r.ventas.anuladas === 1 ? 'venta anulada' : 'ventas anuladas' }} en el período (no se cuentan).</p>
         }
 
         <div class="mt-6 grid gap-6 lg:grid-cols-2">
           <section class="card p-5 lg:col-span-2" aria-labelledby="titulo-dias">
             <h2 id="titulo-dias" class="font-semibold">Ventas por día</h2>
             @if (periodo() === 'anio') {
-              <p class="mt-2 text-sm text-ink-500">Para ver el detalle día por día elegí un mes o un rango de fechas.</p>
+              <p class="mt-2 text-sm text-muted">Para ver el detalle día por día elegí un mes o un rango de fechas.</p>
             } @else {
-              <p class="mb-4 text-sm text-ink-500">Total vendido cada día del período</p>
+              <p class="mb-4 text-sm text-muted">Total vendido cada día del período</p>
               <app-grafico-columnas [datos]="columnasDias()" titulo="Ventas por día" etiquetaX="Día" prefijo="$" />
             }
           </section>
 
           <section class="card p-5" aria-labelledby="titulo-horas">
             <h2 id="titulo-horas" class="font-semibold">¿A qué hora se vende más?</h2>
-            <p class="mb-4 text-sm text-ink-500">Total vendido por hora del día</p>
+            <p class="mb-4 text-sm text-muted">Total vendido por hora del día</p>
             <app-grafico-columnas [datos]="columnasHoras()" titulo="Ventas por hora" etiquetaX="Hora" prefijo="$" />
           </section>
 
           <section class="card p-5" aria-labelledby="titulo-metodos">
             <h2 id="titulo-metodos" class="font-semibold">Formas de pago</h2>
-            <p class="mb-4 text-sm text-ink-500">Cuánto entró por cada medio</p>
+            <p class="mb-4 text-sm text-muted">Cuánto entró por cada medio</p>
             <app-barras-horizontales [filas]="filasMetodos()" titulo="Formas de pago" />
           </section>
 
@@ -98,12 +98,12 @@ const NOMBRE_METODO: Record<string, string> = { EFECTIVO: 'Efectivo', TRANSFEREN
             <div class="mb-4 flex flex-wrap items-center justify-between gap-2">
               <div>
                 <h2 id="titulo-top" class="font-semibold">Productos más vendidos</h2>
-                <p class="text-sm text-ink-500">Los 10 primeros del período</p>
+                <p class="text-sm text-muted">Los 10 primeros del período</p>
               </div>
-              <div class="flex rounded-xl ring-1 ring-ink-200 dark:ring-ink-700" role="group" aria-label="Ordenar ranking por">
+              <div class="flex gap-2" role="group" aria-label="Ordenar ranking por">
                 @for (o of ordenes; track o.id) {
-                  <button type="button" class="btn min-h-9 px-3" [attr.aria-pressed]="orden() === o.id"
-                          [class]="orden() === o.id ? 'bg-ink-900 text-white dark:bg-ink-100 dark:text-ink-900' : 'text-ink-600 dark:text-ink-300'"
+                  <button type="button" class="chip" [attr.aria-pressed]="orden() === o.id"
+                          [class.chip-activo]="orden() === o.id"
                           (click)="cambiarOrden(o.id)">{{ o.etiqueta }}</button>
                 }
               </div>
@@ -115,7 +115,7 @@ const NOMBRE_METODO: Record<string, string> = { EFECTIVO: 'Efectivo', TRANSFEREN
     } @else if (cargando()) {
       <div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">@for (_ of [1, 2, 3, 4]; track $index) { <div class="card h-28 animate-pulse"></div> }</div>
     } @else if (periodo() === 'rango') {
-      <p class="card p-6 text-center text-sm text-ink-500">Elegí desde y hasta qué fecha.</p>
+      <p class="card p-6 text-center text-sm text-muted">Elegí desde y hasta qué fecha.</p>
     }
   `,
 })

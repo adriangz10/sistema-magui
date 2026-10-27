@@ -16,11 +16,11 @@ const BILLETES = [1000, 2000, 10000, 20000];
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <section class="card p-5" aria-labelledby="titulo-cobro">
-      <h2 id="titulo-cobro" class="text-sm font-medium text-ink-500">Total a cobrar</h2>
-      <p class="mt-1 text-4xl font-bold tracking-tight tabular-nums">{{ total() | dinero }}</p>
-      <p class="text-sm text-ink-500">{{ carrito.unidades() }} {{ carrito.unidades() === 1 ? 'unidad' : 'unidades' }}</p>
+      <h2 id="titulo-cobro" class="text-sm font-medium text-muted">Total a cobrar</h2>
+      <p class="mt-1 text-3xl font-semibold tracking-tight tabular-nums">{{ total() | dinero }}</p>
+      <p class="text-sm text-muted">{{ carrito.unidades() }} {{ carrito.unidades() === 1 ? 'unidad' : 'unidades' }}</p>
 
-      <h3 class="mt-5 mb-2 text-sm font-medium text-ink-700 dark:text-ink-300">Forma de pago</h3>
+      <h3 class="mt-5 mb-2 text-sm font-medium">Forma de pago</h3>
       <div class="grid grid-cols-2 gap-2">
         @for (m of metodos; track m.valor) {
           <button type="button" class="btn-secundario justify-start" [disabled]="carrito.vacio()" (click)="agregar(m.valor)">
@@ -41,7 +41,7 @@ const BILLETES = [1000, 2000, 10000, 20000];
                   <button type="button" class="btn-fantasma min-h-8 px-2 text-xs" (click)="carrito.completar(i)">
                     {{ p.metodo === 'EFECTIVO' ? 'Exacto' : 'Lo que falta' }}
                   </button>
-                  <button type="button" class="btn-fantasma btn-icono min-h-8 w-8 text-ink-400 hover:text-danger"
+                  <button type="button" class="btn-fantasma btn-icono min-h-8 w-8 text-muted hover:text-danger"
                           (click)="carrito.quitarPago(i)" [attr.aria-label]="'Quitar pago en ' + etiqueta(p.metodo)">
                     <lucide-icon [img]="iconos.quitar" [size]="16" aria-hidden="true" />
                   </button>
@@ -63,19 +63,19 @@ const BILLETES = [1000, 2000, 10000, 20000];
       }
 
       <dl class="mt-5 space-y-1.5 border-t border-ink-100 pt-4 text-sm dark:border-ink-800">
-        <div class="flex justify-between"><dt class="text-ink-500">Pagado</dt><dd class="tabular-nums">{{ pagado() | dinero }}</dd></div>
-        <div class="flex justify-between font-medium" [class]="carrito.cobro().falta > 0 ? 'text-danger dark:text-red-400' : 'text-ink-500'">
+        <div class="flex justify-between"><dt class="text-muted">Pagado</dt><dd class="tabular-nums">{{ pagado() | dinero }}</dd></div>
+        <div class="flex justify-between font-medium" [class]="carrito.cobro().falta > 0 ? 'text-danger' : 'text-muted'">
           <dt>Falta</dt><dd class="tabular-nums" aria-live="polite">{{ falta() | dinero }}</dd>
         </div>
         @if (carrito.cobro().vuelto > 0) {
-          <div class="flex items-center justify-between rounded-xl bg-green-50 px-3 py-2 text-ok dark:bg-green-950 dark:text-green-300">
-            <dt class="font-medium">Vuelto</dt><dd class="text-xl font-bold tabular-nums" aria-live="polite">{{ vuelto() | dinero }}</dd>
+          <div class="aviso-ok flex items-center justify-between">
+            <dt class="font-medium">Vuelto</dt><dd class="text-xl font-semibold tabular-nums" aria-live="polite">{{ vuelto() | dinero }}</dd>
           </div>
         }
       </dl>
 
       @if (carrito.cobro().problema; as problema) {
-        <p class="mt-3 rounded-lg bg-amber-50 px-3 py-2 text-sm text-warn dark:bg-amber-950 dark:text-amber-300" role="alert">{{ problema }}</p>
+        <p class="aviso-warn mt-3" role="alert">{{ problema }}</p>
       }
 
       <button type="button" class="btn-primario mt-5 h-12 w-full text-base" [disabled]="!carrito.cobro().listo || cobrando()" (click)="cobrar.emit()">

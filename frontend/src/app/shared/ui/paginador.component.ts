@@ -11,7 +11,7 @@ type Boton = number | '…';
   template: `
     @if (total() > 0) {
       <nav class="flex flex-col items-center justify-between gap-3 px-4 py-3 text-sm sm:flex-row" aria-label="Paginación">
-        <p class="text-ink-500" aria-live="polite">
+        <p class="text-muted" aria-live="polite">
           Mostrando <span class="font-medium text-ink-800 dark:text-ink-200">{{ desde() }}–{{ hasta() }}</span>
           de <span class="font-medium text-ink-800 dark:text-ink-200">{{ total() }}</span>
         </p>
@@ -23,10 +23,10 @@ type Boton = number | '…';
             </button>
             @for (b of botones(); track $index) {
               @if (b === '…') {
-                <span class="px-2 text-ink-400" aria-hidden="true">…</span>
+                <span class="px-2 text-muted" aria-hidden="true">…</span>
               } @else {
                 <button type="button" class="btn btn-icono"
-                        [class]="b === pagina() ? 'bg-brand-600 text-white' : 'text-ink-700 hover:bg-ink-100 dark:text-ink-200 dark:hover:bg-ink-800'"
+                        [class]="b === pagina() ? 'bg-ink-900 text-white dark:bg-ink-100 dark:text-ink-900' : 'text-ink-700 hover:bg-ink-100 dark:text-ink-200 dark:hover:bg-ink-800'"
                         [attr.aria-current]="b === pagina() ? 'page' : null" [attr.aria-label]="'Página ' + b"
                         (click)="ir(b)">{{ b }}</button>
               }

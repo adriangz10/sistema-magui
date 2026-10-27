@@ -14,12 +14,12 @@ import { LucideAngularModule, X } from 'lucide-angular';
   imports: [LucideAngularModule],
   changeDetection: ChangeDetectionStrategy.OnPush,
   styles: `
-    dialog::backdrop { background: rgb(2 6 23 / 0.55); backdrop-filter: blur(2px); }
+    dialog::backdrop { background: rgb(12 10 9 / 0.4); }
   `,
   template: `
     <dialog #dialogo (cancel)="$event.preventDefault(); cerrar.emit()" (click)="clicFuera($event)"
             [attr.aria-labelledby]="idTitulo"
-            class="m-auto w-[calc(100%-2rem)] rounded-2xl bg-white p-0 text-ink-900 shadow-2xl dark:bg-ink-900 dark:text-ink-100"
+            class="m-auto w-[calc(100%-2rem)] rounded-xl bg-white p-0 text-ink-900 shadow-md dark:bg-ink-900 dark:text-ink-100"
             [class]="ancho() === 'grande' ? 'max-w-3xl' : 'max-w-lg'">
       <div class="flex items-center justify-between border-b border-ink-100 px-5 py-4 dark:border-ink-800">
         <h2 [id]="idTitulo" class="text-lg font-semibold">{{ titulo() }}</h2>

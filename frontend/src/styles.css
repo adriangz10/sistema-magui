@@ -1,123 +1,154 @@
 @import '@fontsource-variable/inter';
 @import 'tailwindcss';
 
-/* Tokens de diseño del Sistema Magui (se usan como bg-brand-600, text-ink-900, etc.) */
 @theme {
   --font-sans: 'Inter Variable', ui-sans-serif, system-ui, sans-serif;
 
-  --color-brand-50: #fdf2f8;
-  --color-brand-100: #fce7f3;
-  --color-brand-200: #fbcfe8;
-  --color-brand-300: #f9a8d4;
-  --color-brand-400: #f472b6;
-  --color-brand-500: #ec4899;
-  --color-brand-600: #db2777;
-  --color-brand-700: #be185d;
-  --color-brand-800: #9d174d;
-  --color-brand-950: #500724;
+  /* Acento único, apagado */
+  --color-brand-50: #f1f5f5;
+  --color-brand-100: #e1eaec;
+  --color-brand-200: #c5d5d9;
+  --color-brand-300: #9bb8be;
+  --color-brand-400: #6f969e;
+  --color-brand-500: #527b84;
+  --color-brand-600: #3f6670;
+  --color-brand-700: #33525a;
+  --color-brand-800: #2a4349;
+  --color-brand-950: #131f22;
 
-  --color-ink-50: #f8fafc;
-  --color-ink-100: #f1f5f9;
-  --color-ink-200: #e2e8f0;
-  --color-ink-300: #cbd5e1;
-  --color-ink-400: #94a3b8;
-  --color-ink-500: #64748b;
-  --color-ink-600: #475569;
-  --color-ink-700: #334155;
-  --color-ink-800: #1e293b;
-  --color-ink-900: #0f172a;
-  --color-ink-950: #020617;
+  /* Neutros cálidos (stone) */
+  --color-ink-50: #fafaf9;
+  --color-ink-100: #f5f5f4;
+  --color-ink-200: #e7e5e4;
+  --color-ink-300: #d6d3d1;
+  --color-ink-400: #a8a29e;
+  --color-ink-500: #78716c;
+  --color-ink-600: #57534e;
+  --color-ink-700: #44403c;
+  --color-ink-800: #292524;
+  --color-ink-900: #1c1917;
+  --color-ink-950: #0c0a09;
 
-  /* Tonos 700: contraste ≥ 4.5:1 sobre blanco (WCAG AA) */
-  --color-ok: #15803d;
-  --color-warn: #b45309;
-  --color-danger: #b91c1c;
+  /* Sombras mínimas: solo para elementos flotantes */
+  --shadow-md: 0 4px 12px -2px rgb(28 25 23 / 0.10), 0 2px 4px -2px rgb(28 25 23 / 0.06);
 }
 
-/* Modo oscuro por clase: <html class="dark"> */
+/* Semánticos: cambian solos con el tema (evita repetir pares dark: en cada uso) */
+@theme inline {
+  --color-ok: var(--c-ok);
+  --color-ok-soft: var(--c-ok-soft);
+  --color-ok-line: var(--c-ok-line);
+  --color-warn: var(--c-warn);
+  --color-warn-soft: var(--c-warn-soft);
+  --color-warn-line: var(--c-warn-line);
+  --color-danger: var(--c-danger);
+  --color-danger-soft: var(--c-danger-soft);
+  --color-danger-line: var(--c-danger-line);
+  --color-muted: var(--c-muted);
+}
+
+@layer base {
+  :root {
+    --c-ok: #3d6b4a;      --c-ok-soft: #f1f6f2;      --c-ok-line: #cfe0d4;
+    --c-warn: #8a5a14;    --c-warn-soft: #f8f3ea;    --c-warn-line: #e8dcc2;
+    --c-danger: #a23a3a;  --c-danger-soft: #f8eeee;  --c-danger-line: #e9cccc;
+    --c-muted: #6b6560;
+  }
+  .dark {
+    --c-ok: #8fc09e;      --c-ok-soft: #17241c;      --c-ok-line: #2a4132;
+    --c-warn: #d6b06a;    --c-warn-soft: #251e12;    --c-warn-line: #4a3a1d;
+    --c-danger: #e39a9a;  --c-danger-soft: #2a1818;  --c-danger-line: #4d2b2b;
+    --c-muted: #a8a29e;
+  }
+  input[type='checkbox'], input[type='radio'] { accent-color: var(--color-brand-600); }
+  .dark input[type='checkbox'], .dark input[type='radio'] { accent-color: var(--color-brand-300); }
+}
+
 @custom-variant dark (&:where(.dark, .dark *));
 
-html,
-body {
-  height: 100%;
-}
+html, body { height: 100%; }
 
 body {
   @apply bg-ink-50 font-sans text-ink-900 antialiased dark:bg-ink-950 dark:text-ink-100;
 }
 
-/* Utilidades base: se pueden reutilizar con @apply en las variantes de abajo */
 @utility btn {
-  @apply inline-flex min-h-10 items-center justify-center gap-2 rounded-xl px-4 text-sm font-medium transition
-    focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-500
-    disabled:cursor-not-allowed disabled:opacity-50;
+  @apply inline-flex min-h-10 items-center justify-center gap-2 rounded-lg px-4 text-sm font-medium transition-colors duration-150
+    focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-600 dark:focus-visible:outline-brand-300
+    disabled:cursor-not-allowed disabled:opacity-50 motion-reduce:transition-none;
+}
+
+@utility aviso {
+  @apply rounded-lg border px-3 py-2 text-sm;
 }
 
 @utility badge {
-  @apply inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium;
+  @apply inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-xs font-medium;
 }
 
-/* Componentes base reutilizables (una sola definición para toda la app) */
 @layer components {
   .card {
-    @apply rounded-2xl border border-ink-200 bg-white shadow-sm dark:border-ink-800 dark:bg-ink-900;
+    @apply rounded-xl border border-ink-200 bg-white dark:border-ink-800 dark:bg-ink-900;
   }
 
+  /* Botones */
   .btn-primario {
-    @apply btn bg-brand-600 text-white shadow-sm hover:bg-brand-700 active:bg-brand-800;
+    @apply btn bg-ink-900 text-white hover:bg-ink-700 active:bg-ink-800
+      dark:bg-ink-100 dark:text-ink-900 dark:hover:bg-white dark:active:bg-ink-200;
   }
   .btn-secundario {
-    @apply btn border border-ink-200 bg-white text-ink-800 hover:bg-ink-100
-      dark:border-ink-700 dark:bg-ink-900 dark:text-ink-100 dark:hover:bg-ink-800;
+    @apply btn border border-ink-300 bg-white text-ink-800 hover:bg-ink-50 active:bg-ink-100
+      dark:border-ink-700 dark:bg-transparent dark:text-ink-100 dark:hover:bg-ink-800 dark:active:bg-ink-800;
   }
   .btn-fantasma {
-    @apply btn text-ink-700 hover:bg-ink-100 dark:text-ink-200 dark:hover:bg-ink-800;
+    @apply btn text-ink-700 hover:bg-ink-100 active:bg-ink-200 dark:text-ink-200 dark:hover:bg-ink-800 dark:active:bg-ink-700;
   }
   .btn-peligro {
-    @apply btn bg-danger text-white hover:bg-red-800;
+    @apply btn border border-danger bg-transparent text-danger hover:bg-danger-soft;
   }
   .btn-icono {
     @apply btn min-h-10 w-10 px-0;
   }
 
+  /* Formularios */
   .input {
-    @apply block min-h-10 w-full rounded-xl border border-ink-300 bg-white px-3 text-sm text-ink-900 shadow-xs
-      placeholder:text-ink-400 focus:border-brand-500 focus:ring-2 focus:ring-brand-200 focus:outline-none
-      disabled:bg-ink-100 aria-invalid:border-danger aria-invalid:ring-red-100
-      dark:border-ink-700 dark:bg-ink-900 dark:text-ink-100 dark:focus:ring-brand-950;
+    @apply block min-h-10 w-full rounded-lg border border-ink-300 bg-white px-3 text-sm text-ink-900
+      placeholder:text-muted focus:border-brand-600 focus:outline-2 focus:-outline-offset-1 focus:outline-brand-600
+      disabled:bg-ink-100 disabled:text-muted aria-invalid:border-danger aria-invalid:outline-danger
+      dark:border-ink-700 dark:bg-ink-900 dark:text-ink-100 dark:focus:border-brand-300 dark:focus:outline-brand-300 dark:disabled:bg-ink-800;
   }
-
   .etiqueta {
     @apply mb-1 block text-sm font-medium text-ink-700 dark:text-ink-300;
   }
 
-  .badge-ok {
-    @apply badge bg-green-100 text-green-800 dark:bg-green-950 dark:text-green-300;
+  /* Badges: solo lo anómalo lleva color */
+  .badge-ok     { @apply badge bg-ok-soft text-ok; }
+  .badge-warn   { @apply badge bg-warn-soft text-warn; }
+  .badge-danger { @apply badge bg-danger-soft text-danger; }
+  .badge-neutro { @apply badge bg-ink-100 text-ink-700 dark:bg-ink-800 dark:text-ink-300; }
+
+  /* Avisos en línea (banners, notas, mensajes dentro de pantallas) */
+  .aviso-ok     { @apply aviso border-ok-line bg-ok-soft text-ok; }
+  .aviso-warn   { @apply aviso border-warn-line bg-warn-soft text-warn; }
+  .aviso-danger { @apply aviso border-danger-line bg-danger-soft text-danger; }
+  .aviso-info   { @apply aviso border-ink-200 bg-ink-100 text-ink-700 dark:border-ink-800 dark:bg-ink-800 dark:text-ink-200; }
+
+  /* Chips / segmentados (filtros, períodos, orden, tema) */
+  .chip {
+    @apply inline-flex min-h-9 items-center justify-center gap-1.5 rounded-lg bg-white px-3 text-sm font-medium text-ink-700 ring-1 ring-ink-200
+      transition-colors duration-150 hover:bg-ink-50
+      focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-600
+      dark:bg-ink-900 dark:text-ink-200 dark:ring-ink-700 dark:hover:bg-ink-800 dark:focus-visible:outline-brand-300;
   }
-  .badge-warn {
-    @apply badge bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300;
-  }
-  .badge-danger {
-    @apply badge bg-red-100 text-red-800 dark:bg-red-950 dark:text-red-300;
-  }
-  .badge-neutro {
-    @apply badge bg-ink-100 text-ink-700 dark:bg-ink-800 dark:text-ink-300;
+  .chip-activo {
+    @apply bg-ink-900 text-white ring-ink-900 hover:bg-ink-900 dark:bg-ink-100 dark:text-ink-900 dark:ring-ink-100 dark:hover:bg-ink-100;
   }
 
-  .tabla {
-    @apply w-full text-left text-sm;
-  }
-  .tabla th {
-    @apply border-b border-ink-200 px-4 py-3 text-xs font-semibold tracking-wide text-ink-500 uppercase dark:border-ink-800;
-  }
-  .tabla td {
-    @apply border-b border-ink-100 px-4 py-3 dark:border-ink-800;
-  }
-  .tabla tbody tr {
-    @apply transition hover:bg-ink-50 dark:hover:bg-ink-800/50;
-  }
+  /* Tabla */
+  .tabla { @apply w-full text-left text-sm; }
+  .tabla th { @apply border-b border-ink-200 px-4 py-3 text-xs font-medium text-muted dark:border-ink-800; }
+  .tabla td { @apply border-b border-ink-100 px-4 py-3 dark:border-ink-800; }
+  .tabla tbody tr { @apply transition-colors hover:bg-ink-50 dark:hover:bg-ink-800/40; }
 
-  .titulo-pagina {
-    @apply text-2xl font-semibold tracking-tight;
-  }
+  .titulo-pagina { @apply text-xl font-semibold tracking-tight lg:text-2xl; }
 }

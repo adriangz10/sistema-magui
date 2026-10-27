@@ -11,11 +11,11 @@ import { CANTIDAD_MAXIMA, CarritoService, LineaCarrito } from './carrito.service
   template: `
     @if (carrito.vacio()) {
       <div class="card flex flex-col items-center px-6 py-16 text-center">
-        <div class="mb-3 flex size-14 items-center justify-center rounded-2xl bg-brand-50 text-brand-600 dark:bg-brand-950 dark:text-brand-300">
+        <div class="mb-3 flex size-14 items-center justify-center rounded-xl bg-ink-100 text-ink-500 dark:bg-ink-800 dark:text-ink-400">
           <lucide-icon [img]="iconos.carrito" [size]="26" aria-hidden="true" />
         </div>
         <p class="font-medium">El carrito está vacío</p>
-        <p class="mt-1 text-sm text-ink-500">Escaneá un código o buscá un producto para empezar.</p>
+        <p class="mt-1 text-sm text-muted">Escaneá un código o buscá un producto para empezar.</p>
       </div>
     } @else {
       <ul class="card divide-y divide-ink-100 dark:divide-ink-800" aria-label="Productos en el carrito">
@@ -27,14 +27,14 @@ import { CANTIDAD_MAXIMA, CarritoService, LineaCarrito } from './carrito.service
                   {{ l.nombre }}
                   @if (l.tipo === 'COMBO') { <span class="badge-neutro ml-1">Combo</span> }
                 </p>
-                <p class="text-xs text-ink-500">
+                <p class="text-xs text-muted">
                   {{ l.sku }} · {{ l.precio | dinero }} c/u
                   @if (l.cantidad > l.stock) {
                     <span class="badge-warn ml-1">Stock registrado: {{ l.stock }}</span>
                   }
                 </p>
               </div>
-              <button type="button" class="btn-fantasma btn-icono -mt-1 -mr-2 text-ink-400 hover:text-danger" (click)="carrito.quitar(l.productoId)"
+              <button type="button" class="btn-fantasma btn-icono -mt-1 -mr-2 text-muted hover:text-danger" (click)="carrito.quitar(l.productoId)"
                       [attr.aria-label]="'Quitar ' + l.nombre + ' del carrito'">
                 <lucide-icon [img]="iconos.quitar" [size]="18" aria-hidden="true" />
               </button>

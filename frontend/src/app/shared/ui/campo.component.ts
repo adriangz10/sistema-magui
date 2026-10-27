@@ -1,4 +1,5 @@
 import { ChangeDetectionStrategy, Component, input } from '@angular/core';
+import { CircleAlert, LucideAngularModule } from 'lucide-angular';
 
 /**
  * Etiqueta + control + ayuda/error, con los atributos de accesibilidad conectados.
@@ -12,23 +13,28 @@ import { ChangeDetectionStrategy, Component, input } from '@angular/core';
 @Component({
   selector: 'app-campo',
   changeDetection: ChangeDetectionStrategy.OnPush,
+  imports: [LucideAngularModule],
   host: { class: 'block' },
   template: `
     <label [for]="para()" class="etiqueta">
       {{ etiqueta() }}
       @if (opcional()) {
-        <span class="font-normal text-ink-400">(opcional)</span>
+        <span class="font-normal text-muted">(opcional)</span>
       }
     </label>
     <ng-content />
     @if (error()) {
-      <p [id]="para() + '-error'" class="mt-1 text-sm text-danger dark:text-red-400" role="alert">{{ error() }}</p>
+      <p [id]="para() + '-error'" class="mt-1 flex items-start gap-1.5 text-sm text-danger" role="alert">
+        <lucide-icon [img]="iconoError" [size]="16" class="mt-0.5 shrink-0" aria-hidden="true" />
+        <span>{{ error() }}</span>
+      </p>
     } @else if (ayuda()) {
-      <p [id]="para() + '-ayuda'" class="mt-1 text-xs text-ink-500">{{ ayuda() }}</p>
+      <p [id]="para() + '-ayuda'" class="mt-1 text-xs text-muted">{{ ayuda() }}</p>
     }
   `,
 })
 export class CampoComponent {
+  protected readonly iconoError = CircleAlert;
   readonly etiqueta = input.required<string>();
   readonly para = input.required<string>();
   readonly error = input<string | null | undefined>(null);

@@ -51,7 +51,7 @@ import { CompraFormComponent } from './compra-form.component';
             <tr>
               <td class="whitespace-nowrap">{{ c.fecha | fecha: 'fecha' }}</td>
               <td>{{ c.empresa ?? '—' }}</td>
-              <td class="text-ink-500">{{ c.unidades }} unidades · {{ c.productos }} {{ c.productos === 1 ? 'producto' : 'productos' }}{{ c.notas ? ' · ' + c.notas : '' }}</td>
+              <td class="text-muted">{{ c.unidades }} unidades · {{ c.productos }} {{ c.productos === 1 ? 'producto' : 'productos' }}{{ c.notas ? ' · ' + c.notas : '' }}</td>
               <td class="text-right font-semibold tabular-nums">{{ c.total | dinero }}</td>
               <td class="text-right">
                 <button type="button" class="btn-fantasma min-h-8 px-3" (click)="ver(c)" [attr.aria-label]="'Ver compra del ' + (c.fecha | fecha: 'fecha')">Ver</button>
@@ -70,7 +70,7 @@ import { CompraFormComponent } from './compra-form.component';
 
     <app-modal [abierto]="!!detalle()" titulo="Detalle de la compra" ancho="grande" (cerrar)="detalle.set(null)">
       @if (detalle(); as d) {
-        <p class="mb-3 text-sm text-ink-500">{{ d.fecha | fecha: 'fecha' }}{{ d.empresa ? ' · ' + d.empresa : '' }}{{ d.notas ? ' · ' + d.notas : '' }}</p>
+        <p class="mb-3 text-sm text-muted">{{ d.fecha | fecha: 'fecha' }}{{ d.empresa ? ' · ' + d.empresa : '' }}{{ d.notas ? ' · ' + d.notas : '' }}</p>
         <div class="overflow-x-auto">
           <table class="tabla">
             <thead><tr><th scope="col">Producto</th><th scope="col" class="text-right">Cant.</th><th scope="col" class="text-right">Costo</th>
@@ -78,7 +78,7 @@ import { CompraFormComponent } from './compra-form.component';
             <tbody>
               @for (it of d.items; track it.id) {
                 <tr>
-                  <td><p class="font-medium">{{ it.producto }}</p><p class="text-xs text-ink-500">{{ it.sku }}</p></td>
+                  <td><p class="font-medium">{{ it.producto }}</p><p class="text-xs text-muted">{{ it.sku }}</p></td>
                   <td class="text-right tabular-nums">{{ it.cantidad }}</td>
                   <td class="text-right tabular-nums">{{ it.costoUnitario | dinero }}</td>
                   <td class="text-right font-medium tabular-nums">{{ it.subtotal | dinero }}</td>

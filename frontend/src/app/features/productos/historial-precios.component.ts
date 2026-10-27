@@ -15,15 +15,15 @@ const ORIGEN: Record<CambioPrecio['origen'], string> = { MANUAL: 'Edición', CAS
   imports: [DineroPipe, FechaPipe, PaginadorComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
-    <p class="mb-3 text-sm text-ink-500">{{ producto().nombre }} · precio actual <strong>{{ producto().precioVenta | dinero }}</strong></p>
+    <p class="mb-3 text-sm text-muted">{{ producto().nombre }} · precio actual <strong>{{ producto().precioVenta | dinero }}</strong></p>
     @if (pagina(); as p) {
       @if (p.items.length) {
         <ul class="divide-y divide-ink-100 dark:divide-ink-800">
           @for (c of p.items; track c.id) {
             <li class="flex items-center justify-between gap-3 py-2.5 text-sm">
               <div>
-                <p class="tabular-nums"><span class="text-ink-500 line-through">{{ c.precioAnterior | dinero }}</span> → <strong>{{ c.precioNuevo | dinero }}</strong></p>
-                <p class="text-xs text-ink-500">{{ c.fecha | fecha }} · {{ origen(c) }}{{ c.motivo ? ' · ' + c.motivo : '' }}</p>
+                <p class="tabular-nums"><span class="text-muted line-through">{{ c.precioAnterior | dinero }}</span> → <strong>{{ c.precioNuevo | dinero }}</strong></p>
+                <p class="text-xs text-muted">{{ c.fecha | fecha }} · {{ origen(c) }}{{ c.motivo ? ' · ' + c.motivo : '' }}</p>
               </div>
               <span [class]="sube(c) ? 'badge-warn' : 'badge-ok'">{{ sube(c) ? '▲' : '▼' }}</span>
             </li>
@@ -31,7 +31,7 @@ const ORIGEN: Record<CambioPrecio['origen'], string> = { MANUAL: 'Edición', CAS
         </ul>
         <app-paginador [pagina]="p.page" [totalPaginas]="p.totalPages" [total]="p.total" (cambio)="cargar($event)" />
       } @else {
-        <p class="py-8 text-center text-sm text-ink-500">Todavía no tuvo cambios de precio.</p>
+        <p class="py-8 text-center text-sm text-muted">Todavía no tuvo cambios de precio.</p>
       }
     }
   `,

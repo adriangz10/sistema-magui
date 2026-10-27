@@ -36,14 +36,14 @@ interface Edicion {
         @if (cargando() && !planas().length) {
           <div class="space-y-3 p-4">@for (_ of [1, 2, 3, 4]; track $index) { <div class="h-10 animate-pulse rounded-lg bg-ink-100 dark:bg-ink-800"></div> }</div>
         } @else if (!planas().length) {
-          <p class="px-6 py-14 text-center text-sm text-ink-500">Todavía no hay categorías.</p>
+          <p class="px-6 py-14 text-center text-sm text-muted">Todavía no hay categorías.</p>
         } @else {
           <ul class="divide-y divide-ink-100 dark:divide-ink-800">
             @for (c of planas(); track c.id) {
               <li class="flex flex-wrap items-center gap-2 px-4 py-2.5" [style.padding-left.rem]="1 + c.nivel * 1.5">
                 @if (c.nivel > 0) { <lucide-icon [img]="iconos.hijo" [size]="14" class="text-ink-300" aria-hidden="true" /> }
                 <span class="min-w-0 flex-1" [class.font-semibold]="c.nivel === 0">
-                  {{ c.nombre }} <span class="text-xs font-normal text-ink-400">· {{ c.productos }} {{ c.productos === 1 ? 'producto' : 'productos' }}</span>
+                  {{ c.nombre }} <span class="text-xs font-normal text-muted">· {{ c.productos }} {{ c.productos === 1 ? 'producto' : 'productos' }}</span>
                 </span>
                 <div class="flex flex-wrap gap-1">
                   <button type="button" class="btn-secundario min-h-8 px-3 text-xs" (click)="ajustando.set(c)" [attr.aria-label]="'Cambiar precios de ' + c.ruta">Cambiar precios</button>

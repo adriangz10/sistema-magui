@@ -2,7 +2,7 @@ import { EstadoLote } from '../../core/api/inventario.api';
 
 /** Clase de badge según el estado de vencimiento. */
 export function claseEstadoLote(e: EstadoLote): string {
-  return { VENCIDO: 'badge-danger', POR_VENCER: 'badge-warn', VIGENTE: 'badge-ok', SIN_FECHA: 'badge-neutro' }[e];
+  return { VENCIDO: 'badge-danger', POR_VENCER: 'badge-warn', VIGENTE: 'badge-neutro', SIN_FECHA: 'badge-neutro' }[e];
 }
 
 /** "Vencido hace 3 días", "Vence en 10 días", "Vence hoy", "Sin fecha". */
