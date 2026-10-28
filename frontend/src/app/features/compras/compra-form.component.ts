@@ -1,16 +1,18 @@
-import { ChangeDetectionStrategy, Component, computed, inject, input, output, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, effect, inject, input, output, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { firstValueFrom } from 'rxjs';
 import { LucideAngularModule, Trash2 } from 'lucide-angular';
 import { ApiError } from '../../core/api/api-error';
 import { Empresa, ProductoResumen } from '../../core/api/catalogo.api';
 import { CompraDetalle, ComprasApi } from '../../core/api/compras.api';
+import { origenDispositivo } from '../../core/config/origen';
 import { ToastService } from '../../core/ui/toast.service';
 import { aCentavos, DineroPipe, deCentavos } from '../../shared/formato/dinero';
-import { hoyISO } from '../../shared/formato/fecha';
+import { FechaPipe, hoyISO } from '../../shared/formato/fecha';
 import { BuscadorProductoComponent } from '../../shared/ui/buscador-producto.component';
 import { CampoComponent } from '../../shared/ui/campo.component';
 import { InputDineroComponent } from '../../shared/ui/input-dinero.component';
+import { armarEdicion, cabeceraDe, hayCambios, seAplicoEdicion } from './edicion-compra';
 
 interface Renglon {
   clave: number;
@@ -27,7 +29,7 @@ interface Renglon {
 /** Carga de una compra: productos, cantidades, costo, vencimiento y nuevo precio de reventa. */
 @Component({
   selector: 'app-compra-form',
-  imports: [FormsModule, LucideAngularModule, DineroPipe, BuscadorProductoComponent, CampoComponent, InputDineroComponent],
+  imports: [FormsModule, LucideAngularModule, DineroPipe, FechaPipe, BuscadorProductoComponent, CampoComponent, InputDineroComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <div class="space-y-5">
@@ -35,16 +37,56 @@ interface Renglon {
         <app-campo etiqueta="Fecha" para="c-fecha" [error]="errores()['fecha']">
           <input id="c-fecha" type="date" class="input" [max]="hoy" [(ngModel)]="fecha" />
         </app-campo>
-        <app-campo etiqueta="Empresa" para="c-empresa" [opcional]="true">
+        <app-campo etiqueta="Empresa" para="c-empresa" [opcional]="true" [error]="errores()['empresaId']">
           <select id="c-empresa" class="input" [(ngModel)]="empresaId">
             <option value="">Sin empresa</option>
             @for (e of empresas(); track e.id) { <option [value]="e.id">{{ e.nombre }}</option> }
           </select>
         </app-campo>
-        <app-campo etiqueta="Notas" para="c-notas" [opcional]="true">
-          <input id="c-notas" class="input" maxlength="500" [(ngModel)]="notas" placeholder="Ej.: pedido ciclo 15" />
+        <app-campo etiqueta="Notas" para="c-notas" [opcional]="true" [error]="errores()['notas']">
+          <input id="c-notas" class="input" maxlength="500" [(ngModel)]="notas" placeholder="Ej.: pedido ciclo 15" [attr.aria-invalid]="errores()['notas'] ? true : null" />
         </app-campo>
       </div>
+
+      @if (esEdicion()) {
+        <app-campo etiqueta="Motivo de la edición" para="c-motivo" [opcional]="true" [error]="errores()['motivo']">
+          <input id="c-motivo" class="input" maxlength="255" [(ngModel)]="motivo" placeholder="Ej.: error de carga" />
+        </app-campo>
+
+        @if (desactualizada()) {
+          <div class="aviso-danger flex flex-wrap items-center justify-between gap-3" role="alert">
+            <span>Otra persona modificó esta compra, recargá para ver los datos actuales. Tus cambios no se guardaron.</span>
+            <button type="button" class="btn-secundario" (click)="recargar.emit()">Recargar</button>
+          </div>
+        }
+
+        <p class="aviso-info">Por ahora solo se puede editar la cabecera. Cambiar los renglones llega en una próxima versión.</p>
+        <div class="overflow-x-auto">
+          <table class="tabla">
+            <caption class="sr-only">Renglones de la compra (solo lectura)</caption>
+            <thead><tr><th scope="col">Producto</th><th scope="col" class="text-right">Cant.</th><th scope="col" class="text-right">Costo</th>
+              <th scope="col">Vence</th><th scope="col" class="text-right">Subtotal</th></tr></thead>
+            <tbody>
+              @for (it of compra()!.items; track it.id) {
+                <tr>
+                  <td><p class="font-medium">{{ it.producto }}</p><p class="text-xs text-muted">{{ it.sku }}</p></td>
+                  <td class="text-right tabular-nums">{{ it.cantidad }}</td>
+                  <td class="text-right tabular-nums">{{ it.costoUnitario | dinero }}</td>
+                  <td class="whitespace-nowrap">{{ it.vencimiento | fecha }}</td>
+                  <td class="text-right font-medium tabular-nums">{{ it.subtotal | dinero }}</td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+        <div class="flex flex-wrap items-center justify-between gap-3 border-t border-ink-100 pt-4 dark:border-ink-800">
+          <p class="text-lg">Total de la compra <strong class="tabular-nums">{{ compra()!.total | dinero }}</strong></p>
+          <div class="flex gap-2">
+            <button type="button" class="btn-secundario" (click)="cancelado.emit()">Cancelar</button>
+            <button type="button" class="btn-primario" [disabled]="guardando() || desactualizada()" (click)="guardarEdicion()">Guardar cambios</button>
+          </div>
+        </div>
+      } @else {
 
       <app-buscador-producto idCampo="compra-buscar" etiqueta="Agregar producto a la compra" [compacto]="true" tipo="SIMPLE"
                              placeholder="Escaneá o buscá un producto para agregarlo" (elegido)="agregar($event)" />
@@ -95,13 +137,20 @@ interface Renglon {
           <button type="button" class="btn-primario" [disabled]="guardando() || !renglones().length" (click)="guardar()">Registrar compra</button>
         </div>
       </div>
+      }
     </div>
   `,
 })
 export class CompraFormComponent {
   readonly empresas = input<Empresa[]>([]);
+  /** Si viene, el formulario edita la cabecera de esa compra (renglones en solo lectura). */
+  readonly compra = input<CompraDetalle | null>(null);
   readonly guardado = output<CompraDetalle>();
   readonly cancelado = output<void>();
+  /** Edición sin cambios en el servidor (misma versión). */
+  readonly sinCambios = output<void>();
+  /** Pidió recargar la compra tras un 409 version_desactualizada. */
+  readonly recargar = output<void>();
 
   private readonly api = inject(ComprasApi);
   private readonly toast = inject(ToastService);
@@ -111,12 +160,30 @@ export class CompraFormComponent {
   protected fecha = hoyISO();
   protected empresaId = '';
   protected notas = '';
+  protected motivo = '';
+  protected readonly esEdicion = computed(() => this.compra() !== null);
+  protected readonly desactualizada = signal(false);
   protected readonly renglones = signal<Renglon[]>([]);
   protected readonly errores = signal<Record<string, string>>({});
   protected readonly guardando = signal(false);
   /** Se incrementa para recalcular totales cuando cambia un campo editado en el lugar. */
   private readonly version = signal(0);
   private siguienteClave = 1;
+
+  constructor() {
+    effect(() => {
+      const c = this.compra();
+      if (c) {
+        const base = cabeceraDe(c);
+        this.fecha = base.fecha;
+        this.empresaId = base.empresaId;
+        this.notas = base.notas;
+        this.motivo = '';
+        this.errores.set({});
+        this.desactualizada.set(false);
+      }
+    });
+  }
 
   protected readonly total = computed(() => {
     this.version();
@@ -151,6 +218,59 @@ export class CompraFormComponent {
 
   protected errorRenglon(i: number, campo: string): string | null {
     return this.errores()[`items[${i}].${campo}`] ?? null;
+  }
+
+  protected async guardarEdicion(): Promise<void> {
+    const original = this.compra();
+    if (!original) {
+      return;
+    }
+    const actual = { fecha: this.fecha, empresaId: this.empresaId, notas: this.notas, motivo: this.motivo };
+    const locales: Record<string, string> = {};
+    if (!actual.fecha) {
+      locales['fecha'] = 'Ingresá la fecha';
+    } else if (actual.fecha > hoyISO()) {
+      locales['fecha'] = 'La fecha no puede ser futura';
+    }
+    if (actual.notas.length > 500) {
+      locales['notas'] = 'Máximo 500 caracteres';
+    }
+    if (actual.motivo.length > 255) {
+      locales['motivo'] = 'Máximo 255 caracteres';
+    }
+    this.errores.set(locales);
+    if (Object.keys(locales).length) {
+      return;
+    }
+    if (!hayCambios(original, actual)) {
+      this.sinCambios.emit();
+      return;
+    }
+    this.guardando.set(true);
+    try {
+      const compra = await firstValueFrom(this.api.editar(original.id, armarEdicion(original, actual, origenDispositivo())));
+      if (seAplicoEdicion(original.version, compra)) {
+        this.guardado.emit(compra);
+      } else {
+        this.sinCambios.emit();
+      }
+    } catch (e) {
+      const err = ApiError.desde(e);
+      if (err.codigo === 'version_desactualizada') {
+        this.desactualizada.set(true);
+      } else if (err.codigo === 'compra_no_encontrada') {
+        this.toast.error(new ApiError(404, err.codigo, 'La compra ya no existe'));
+        this.cancelado.emit();
+      } else if (err.codigo === 'empresa_no_encontrada') {
+        this.errores.set({ empresaId: 'La empresa elegida ya no existe' });
+      } else if (err.status === 422 && Object.keys(err.campos).length) {
+        this.errores.set({ ...err.campos });
+      } else {
+        this.toast.error(err);
+      }
+    } finally {
+      this.guardando.set(false);
+    }
   }
 
   protected async guardar(): Promise<void> {

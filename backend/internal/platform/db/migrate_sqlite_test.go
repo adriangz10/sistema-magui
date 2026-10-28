@@ -24,7 +24,7 @@ func TestMigracionesSQLite(t *testing.T) {
 	}
 	tablas := []string{"empresa", "categoria", "producto", "producto_categoria", "combo_item",
 		"precio_historial", "compra", "compra_item", "lote", "venta", "venta_item", "venta_pago",
-		"movimiento_stock", "gasto_caja", "configuracion", "v_stock_lote", "v_stock_producto"}
+		"compra_edicion", "movimiento_stock", "gasto_caja", "configuracion", "v_stock_lote", "v_stock_producto"}
 	for _, tb := range tablas {
 		var n int
 		if err := conn.QueryRow(`SELECT count(*) FROM sqlite_master WHERE name = ?`, tb).Scan(&n); err != nil || n != 1 {
@@ -49,6 +49,23 @@ func TestMigracionesSQLite(t *testing.T) {
 	}
 	if _, err := conn.Exec(`INSERT INTO venta_pago (id, venta_id, metodo, monto) VALUES ('x','y','CHEQUE',1)`); err == nil {
 		t.Error("se esperaba error por método de pago inválido")
+	}
+
+	// US-001a: versión de la compra y auditoría de ediciones
+	mustExec(t, conn, `INSERT INTO compra (id, fecha, total, created_at, updated_at) VALUES ('c1','2026-01-01',100,'2026-01-01','2026-01-01')`)
+	var version int
+	if err := conn.QueryRow(`SELECT version FROM compra WHERE id='c1'`).Scan(&version); err != nil || version != 1 {
+		t.Errorf("version = %d, err = %v", version, err)
+	}
+	mustExec(t, conn, `INSERT INTO compra_edicion (id, compra_id, fecha, origen, version, cambios) VALUES ('e1','c1','2026-01-02','WEB',2,'{"v":1}')`)
+	if _, err := conn.Exec(`INSERT INTO compra_edicion (id, compra_id, fecha, origen, version, cambios) VALUES ('e2','c1','2026-01-02','WEB',2,'{"v":1}')`); err == nil {
+		t.Error("se esperaba error por (compra_id, version) duplicado")
+	}
+	if _, err := conn.Exec(`INSERT INTO compra_edicion (id, compra_id, fecha, origen, version, cambios) VALUES ('e3','c1','2026-01-02','WEB',3,'x')`); err == nil {
+		t.Error("se esperaba error: cambios no es JSON")
+	}
+	if _, err := conn.Exec(`INSERT INTO compra_edicion (id, compra_id, fecha, origen, version, cambios) VALUES ('e4','c1','2026-01-02','FAX',4,'{}')`); err == nil {
+		t.Error("se esperaba error por origen inválido")
 	}
 
 	// Ida y vuelta

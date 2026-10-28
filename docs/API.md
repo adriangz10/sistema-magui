@@ -85,8 +85,9 @@ Cuerpo de producto:
 
 ## Inventario
 
-El stock nunca se edita directo: cada cambio es un **movimiento** (`INICIAL`, `COMPRA`, `VENTA`, `ANULACION`, `AJUSTE`)
-y el stock es la suma. Cada compra crea un **lote** con su vencimiento y costo. Las salidas se descuentan primero de los lotes
+El stock nunca se edita directo: cada cambio es un **movimiento** (`INICIAL`, `COMPRA`, `VENTA`, `ANULACION`, `AJUSTE`,
+`EDICION_COMPRA`) y el stock es la suma. `EDICION_COMPRA` es la diferencia de cantidad al editar o quitar un renglón de una
+compra (positivo o negativo, en el lote de ese renglón, `referenciaId` = compra) — disponible desde US-001b. Cada compra crea un **lote** con su vencimiento y costo. Las salidas se descuentan primero de los lotes
 vigentes que vencen antes (FEFO), después los sin fecha y por último los ya vencidos (lo vencido sigue en las
 alertas hasta que se descarte con un ajuste).
 
@@ -105,9 +106,10 @@ Estados de un lote: `VENCIDO`, `POR_VENCER` (dentro del plazo de aviso), `VIGENT
 
 | Método | Ruta | Detalle |
 |---|---|---|
-| GET | `/compras` | Paginado, de la más reciente. Filtros: `desde`, `hasta`, `empresaId` |
-| GET | `/compras/{id}` | Detalle con renglones |
+| GET | `/compras` | Paginado, de la más reciente. Filtros: `desde`, `hasta`, `empresaId`. Cada compra trae `version` y `editadaEn` |
+| GET | `/compras/{id}` | Detalle con renglones, `version`, `editadaEn` e historial de `ediciones` (ver "Editar una compra") |
 | POST | `/compras` | Registra la compra (ver abajo) |
+| PUT | `/compras/{id}` | Edita la compra (ver "Editar una compra") |
 
 ```json
 {
@@ -124,6 +126,114 @@ Al registrarla, en una sola operación (todo o nada):
   de reventa (queda en el historial con origen `COMPRA`).
 
 Los combos no se compran (se compran sus productos). `fecha` vacía = ahora.
+
+### Editar una compra
+
+Se entrega por partes: **US-001a** cabecera (fecha, empresa, notas), **US-001b** renglones existentes, **US-001c**
+agregar y quitar renglones. El contrato es el mismo en las tres; lo que todavía no está habilitado responde 422 con un
+código propio. Diseño: `docs/architecture/editar-compra.md` y ADRs 0001–0005.
+
+```json
+// PUT /compras/{id}
+{
+  "fecha": "2026-10-19", "empresaId": "…", "notas": "Pedido ciclo 15",
+  "version": 3, "origen": "WEB", "motivo": "Error de carga",
+  "items": [
+    { "id": "…", "productoId": "…", "cantidad": 6, "costoUnitario": "36000", "precioVentaNuevo": "65000", "vencimiento": "2027-12-31" },
+    { "productoId": "…", "cantidad": 2, "costoUnitario": "15000", "precioVentaNuevo": null, "vencimiento": null }
+  ]
+}
+```
+- `version` (obligatoria): la que se leyó. Si la compra cambió mientras tanto → 409 `version_desactualizada`
+  ("Otra persona modificó esta compra, recargá") y no se aplica nada.
+- `fecha` (obligatoria): `AAAA-MM-DD` o fecha y hora ISO. Si es el mismo día que ya tenía, se conserva la hora original
+  (no cuenta como cambio); si es hoy, queda la hora actual. No puede ser futura (tolerancia 1 hora).
+- `empresaId` vacío = sin empresa (se valida que exista, no que esté activa). `notas` hasta 500 caracteres.
+- `origen`: `WEB` (por defecto), `MOVIL` o `DESKTOP`. `motivo`: opcional, hasta 255 caracteres.
+- `items` ausente o `null` = los renglones no cambian (lo único permitido en US-001a: si se envía → 422
+  `renglones_no_editables`). Desde US-001b, `items` es la lista **completa** de renglones:
+  - con `id`: renglón existente; el `productoId` debe ser el mismo (para cambiar de producto se quita y se agrega otro).
+  - sin `id`: renglón nuevo (desde US-001c; en US-001b → 422 `renglones_nuevos_no_disponibles`).
+  - renglones existentes que no vienen = quitados (desde US-001c; en US-001b → 422 `quitar_renglones_no_disponible`).
+  - Mismas validaciones que al registrar: 1 a 300 renglones, cantidad > 0, costo ≥ 0, precio > 0 si se informa,
+    producto existente y no combo.
+
+Al editar, en una sola operación (todo o nada):
+- se recalcula el `total` (suma de cantidad × costo de los renglones que quedan);
+- si cambió la cantidad de un renglón, se registra un movimiento `EDICION_COMPRA` por la diferencia **en el mismo lote**
+  ("Edición de compra del dd/mm/aaaa"); nunca se modifican movimientos existentes;
+- si cambió el costo o el vencimiento, el lote se actualiza en el lugar (afecta solo al stock restante y a ventas futuras;
+  las ventas ya hechas no se recalculan);
+- un renglón nuevo crea su lote con un movimiento `COMPRA`; uno quitado deja su lote en cero con `EDICION_COMPRA` y se
+  conserva como historia (no aparece más en el detalle);
+- **último costo y precio:** solo si esta compra es la más reciente del producto (por `fecha`; a igual fecha, la cargada
+  después), el producto toma el costo del último renglón de ese producto y, si el `precioVentaNuevo` del renglón
+  **cambió** y difiere del precio actual, el nuevo precio (historial con origen `COMPRA`, motivo "Edición de compra del
+  dd/mm/aaaa"). Vaciar `precioVentaNuevo` no revierte el precio. Si al quitar un renglón o cambiar la fecha la compra deja
+  de ser la más reciente, el último costo pasa al de la nueva más reciente (el precio no se toca);
+- se guarda una entrada en el historial de ediciones y `version` sube 1.
+
+Una edición **sin cambios** (aunque traiga `origen` o `motivo`) responde 200 con el detalle y la **misma** `version`:
+no registra movimientos, historial ni auditoría. La pantalla lo detecta comparando `version` ("No había cambios").
+
+Respuesta 200: el detalle de la compra (igual que `GET /compras/{id}`).
+
+Errores:
+
+| HTTP | `code` | Cuándo |
+|---|---|---|
+| 404 | `compra_no_encontrada` | La compra no existe |
+| 404 | `empresa_no_encontrada` | `empresaId` no existe |
+| 404 | `producto_no_encontrado` | Un renglón nuevo trae un producto inexistente |
+| 409 | `version_desactualizada` | Otra persona editó la compra después de que se leyó |
+| 409 | `compra_consumida` | Bajar o quitar unidades que ya salieron del lote (ventas, ajustes o combos). `fields` trae **todos** los renglones rechazados |
+| 409 | `operacion_concurrente` | Otra operación estaba usando los mismos productos en ese instante: reintentar |
+| 422 | `datos_invalidos` | `fields`: `fecha`, `notas`, `motivo`, `origen`, `version`, `items`, `items[i].id`, `items[i].productoId`, `items[i].cantidad`, `items[i].costoUnitario`, `items[i].precioVentaNuevo`, `items[i].vencimiento` |
+| 422 | `producto_no_comprable` | Un renglón nuevo es un combo |
+| 422 | `renglones_no_editables` / `renglones_nuevos_no_disponibles` / `quitar_renglones_no_disponible` | Funciones de una parte todavía no entregada |
+
+```json
+// 409 compra_consumida
+{ "error": { "code": "compra_consumida", "message": "Hay unidades de esta compra que ya salieron del stock",
+  "fields": {
+    "items[0].cantidad": "Kaiak Clásico: de las 4 unidades de esta compra ya salieron 3 (ventas o ajustes). Solo podés bajar hasta 3 unidades.",
+    "quitados[0192f3a0-…]": "Ekos Jabón: ya salió 1 de las 10 unidades; no se puede quitar. Podés bajar la cantidad hasta 1."
+  } } }
+```
+`items[i]` es la posición en el `items` enviado; `quitados[<id>]` es el `id` del renglón que se quiso quitar.
+
+**Detalle (`GET /compras/{id}`)** — campos nuevos:
+```json
+{
+  "id": "…", "fecha": "2026-10-19T15:00:00Z", "empresaId": "…", "empresa": "Avon", "total": "234120.00",
+  "productos": 2, "unidades": 16, "notas": "Pedido ciclo 15",
+  "version": 3, "editadaEn": "2026-10-27T13:05:12.345Z",
+  "items": [
+    { "id": "…", "productoId": "…", "sku": "P1", "producto": "Kaiak Clásico", "cantidad": 6,
+      "costoUnitario": "35520.00", "subtotal": "213120.00", "precioVentaNuevo": "62000.00",
+      "vencimiento": "2027-09-30", "consumido": 1 }
+  ],
+  "ediciones": [
+    { "id": "…", "fecha": "2026-10-27T13:05:12.345Z", "origen": "WEB", "motivo": "Error de carga", "version": 3,
+      "cabecera": [
+        { "campo": "fecha", "antes": "2026-10-20T15:00:00.000Z", "despues": "2026-10-19T15:00:00.000Z" },
+        { "campo": "empresa", "antes": "Natura", "despues": "Avon", "antesId": "…", "despuesId": "…" },
+        { "campo": "notas", "antes": null, "despues": "Pedido ciclo 15" }
+      ],
+      "renglones": [
+        { "accion": "MODIFICADO", "itemId": "…", "productoId": "…", "producto": "Kaiak Clásico",
+          "cambios": [ { "campo": "cantidad", "antes": 4, "despues": 6 } ] }
+      ] }
+  ]
+}
+```
+- `editadaEn`: `null` si nunca se editó. También viene en cada compra del listado (marca "Editada el …").
+- `ediciones`: de la más reciente a la más vieja (vacío si nunca se editó). `renglones[].accion`: `MODIFICADO`,
+  `AGREGADO` (todos los `antes` en `null`) o `QUITADO` (todos los `despues` en `null`). `campo` de renglón:
+  `cantidad` (número), `costoUnitario` y `precioVentaNuevo` (texto "0.00"), `vencimiento` (`AAAA-MM-DD`). Los nombres
+  son los que tenían al editar.
+- `items[].consumido` (desde US-001b): unidades del lote de ese renglón que ya salieron (cantidad − stock del lote).
+  La cantidad mínima editable es `max(consumido, 1)`; si `consumido > 0` el renglón no se puede quitar.
 
 ## Ventas
 

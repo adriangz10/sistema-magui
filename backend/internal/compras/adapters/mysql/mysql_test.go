@@ -3,6 +3,7 @@ package mysql_test
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"fmt"
 	"io"
 	"log/slog"
@@ -14,12 +15,16 @@ import (
 	catapp "magui/internal/catalogo/application"
 	catdomain "magui/internal/catalogo/domain"
 	"magui/internal/compras"
+	comenlaces "magui/internal/compras/adapters/enlaces"
+	commysql "magui/internal/compras/adapters/mysql"
 	comapp "magui/internal/compras/application"
+	comdomain "magui/internal/compras/domain"
 	"magui/internal/inventario"
 	invapp "magui/internal/inventario/application"
 	invdomain "magui/internal/inventario/domain"
 	"magui/internal/kernel/dinero"
 	"magui/internal/kernel/fecha"
+	"magui/internal/kernel/id"
 	"magui/internal/kernel/paginacion"
 	"magui/internal/kernel/reloj"
 	"magui/internal/platform/db"
@@ -182,4 +187,95 @@ func TestCompraEInventarioMySQL(t *testing.T) {
 	if despues != antes || comprasN != 1 {
 		t.Errorf("quedaron datos a medias: movimientos %d->%d, compras %d", antes, despues, comprasN)
 	}
+}
+
+// US-001a: editar la cabecera de una compra sobre MySQL real.
+func TestEditarCabeceraCompraMySQL(t *testing.T) {
+	conn := baseTemporal(t)
+	ctx := context.Background()
+	log := slog.New(slog.NewTextHandler(io.Discard, nil))
+	cat := catalogo.NuevoModuloMySQL(conn, log).Servicio
+	inv := inventario.NuevoModuloMySQL(conn, cat, log).Servicio
+	com := compras.NuevoModuloMySQL(conn, cat, inv, log).Servicio
+	pag := paginacion.Nueva(1, 10)
+
+	natura := debe(cat.CrearEmpresa(ctx, "Natura"))
+	avon := debe(cat.CrearEmpresa(ctx, "Avon"))
+	kaiak := debe(cat.CrearProducto(ctx, catapp.ComandoProducto{Tipo: catdomain.TipoSimple, Datos: catdomain.DatosProducto{
+		SKU: "P1", Nombre: "Kaiak", PrecioVenta: d("59200")}}))
+	hoy := fecha.DelInstante(time.Now(), reloj.ZonaArgentina)
+	original := hoy.SumarDias(-7)
+	nueva := hoy.SumarDias(-8)
+
+	c := debe(com.RegistrarCompra(ctx, comapp.ComandoCompra{EmpresaID: natura.ID,
+		Fecha: ptr(original.InicioEn(reloj.ZonaArgentina).Add(12 * time.Hour)),
+		Items: []comapp.ItemCmd{{ProductoID: kaiak.ID, Cantidad: 2, CostoUnitario: d("35000")}}}))
+	if c.Version != 1 || c.EditadaEn != nil || c.Ediciones == nil || len(c.Ediciones) != 0 {
+		t.Fatalf("compra recién registrada = %+v", c)
+	}
+
+	// Edición feliz: versión 2, historial con los tres cambios, listado con editadaEn.
+	diaNuevo := nueva
+	e := debe(com.EditarCompra(ctx, comapp.ComandoEditarCompra{ID: c.ID, Version: 1, Fecha: comapp.FechaEditada{Dia: &diaNuevo},
+		EmpresaID: avon.ID, Notas: "Pedido ciclo 15", Origen: "WEB", Motivo: "Error de carga"}))
+	if e.Version != 2 || e.EditadaEn == nil || *e.Empresa != "Avon" || e.Total.String() != c.Total.String() || len(e.Ediciones) != 1 {
+		t.Fatalf("editada = %+v", e)
+	}
+	ed := e.Ediciones[0]
+	if ed.Version != 2 || ed.Origen != "WEB" || *ed.Motivo != "Error de carga" || len(ed.Cabecera) != 3 || ed.Cabecera[1].Antes != "Natura" ||
+		ed.Cabecera[1].Despues != "Avon" || len(ed.Renglones) != 0 {
+		t.Errorf("edición = %+v", ed)
+	}
+	l := debe(com.ListarCompras(ctx, comapp.Filtro{}, pag))
+	if l.Total != 1 || l.Items[0].Version != 2 || l.Items[0].EditadaEn == nil {
+		t.Errorf("listado = %+v", l.Items)
+	}
+
+	// Sin cambios: misma versión, sin nueva entrada.
+	s := debe(com.EditarCompra(ctx, comapp.ComandoEditarCompra{ID: c.ID, Version: 2, Fecha: comapp.FechaEditada{Dia: &diaNuevo},
+		EmpresaID: avon.ID, Notas: "Pedido ciclo 15", Motivo: "nada"}))
+	if s.Version != 2 || len(s.Ediciones) != 1 {
+		t.Errorf("sin cambios = version %d, ediciones %d", s.Version, len(s.Ediciones))
+	}
+
+	// Versión vieja: 409 y no se aplica.
+	if _, err := com.EditarCompra(ctx, comapp.ComandoEditarCompra{ID: c.ID, Version: 1, Fecha: comapp.FechaEditada{Dia: &diaNuevo}, Notas: "otra"}); err == nil ||
+		!errors.Is(err, comdomain.ErrVersionDesactualizada) {
+		t.Errorf("versión vieja: %v", err)
+	}
+	// ActualizarCompra directo con versión vieja.
+	repo := commysql.Repositorio{DB: conn}
+	if err := repo.ActualizarCompra(ctx, comdomain.Compra{ID: c.ID, Version: 9}, 1); !errors.Is(err, comdomain.ErrVersionDesactualizada) {
+		t.Errorf("ActualizarCompra: %v", err)
+	}
+
+	// Quitar la empresa.
+	q := debe(com.EditarCompra(ctx, comapp.ComandoEditarCompra{ID: c.ID, Version: 2, Fecha: comapp.FechaEditada{Dia: &diaNuevo}, Notas: "Pedido ciclo 15"}))
+	if q.Version != 3 || q.EmpresaID != nil || q.Ediciones[0].Cabecera[0].Despues != nil {
+		t.Errorf("sin empresa = %+v", q.Ediciones[0])
+	}
+
+	// Empresa inexistente: 404 y nada cambia.
+	if _, err := com.EditarCompra(ctx, comapp.ComandoEditarCompra{ID: c.ID, Version: 3, Fecha: comapp.FechaEditada{Dia: &diaNuevo},
+		EmpresaID: "no-existe", Notas: "Pedido ciclo 15"}); err == nil {
+		t.Error("empresa inexistente debería fallar")
+	}
+
+	// Todo o nada: si falla la auditoría, la compra queda como estaba (transacción real).
+	falla := comapp.NuevoServicio(comapp.Dependencias{
+		Repo: repoFallaEdicion{repo}, Catalogo: comenlaces.Catalogo{Svc: cat}, Inventario: comenlaces.Inventario{Svc: inv},
+		Tx: db.Transactor{DB: conn}, IDs: id.UUIDv7{}, Reloj: reloj.Sistema{}})
+	if _, err := falla.EditarCompra(ctx, comapp.ComandoEditarCompra{ID: c.ID, Version: 3, Fecha: comapp.FechaEditada{Dia: &diaNuevo}, Notas: "se pierde"}); err == nil {
+		t.Fatal("debería fallar la auditoría")
+	}
+	after := debe(com.ObtenerCompra(ctx, c.ID))
+	if after.Version != 3 || after.Notas == nil || *after.Notas != "Pedido ciclo 15" || len(after.Ediciones) != 2 {
+		t.Errorf("no se revirtió: %+v", after)
+	}
+}
+
+type repoFallaEdicion struct{ commysql.Repositorio }
+
+func (repoFallaEdicion) GuardarEdicion(context.Context, comdomain.Edicion) error {
+	return errors.New("falla simulada")
 }

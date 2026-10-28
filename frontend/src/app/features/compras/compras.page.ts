@@ -13,11 +13,12 @@ import { EncabezadoComponent } from '../../shared/ui/encabezado.component';
 import { ModalComponent } from '../../shared/ui/modal.component';
 import { TablaComponent } from '../../shared/ui/tabla.component';
 import { CompraFormComponent } from './compra-form.component';
+import { HistorialEdicionesComponent } from './historial-ediciones.component';
 
 /** Compras de mercadería: historial y carga de lo que llega. */
 @Component({
   selector: 'app-compras',
-  imports: [FormsModule, LucideAngularModule, DineroPipe, FechaPipe, CampoComponent, EncabezadoComponent, ModalComponent, TablaComponent, CompraFormComponent],
+  imports: [FormsModule, LucideAngularModule, DineroPipe, FechaPipe, CampoComponent, EncabezadoComponent, ModalComponent, TablaComponent, CompraFormComponent, HistorialEdicionesComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <app-encabezado titulo="Compras" descripcion="Mercadería que llegó: suma stock, guarda el costo y actualiza precios">
@@ -51,10 +52,13 @@ import { CompraFormComponent } from './compra-form.component';
             <tr>
               <td class="whitespace-nowrap">{{ c.fecha | fecha: 'fecha' }}</td>
               <td>{{ c.empresa ?? '—' }}</td>
-              <td class="text-muted">{{ c.unidades }} unidades · {{ c.productos }} {{ c.productos === 1 ? 'producto' : 'productos' }}{{ c.notas ? ' · ' + c.notas : '' }}</td>
+              <td class="text-muted">{{ c.unidades }} unidades · {{ c.productos }} {{ c.productos === 1 ? 'producto' : 'productos' }}{{ c.notas ? ' · ' + c.notas : '' }}
+                @if (c.editadaEn) { <span class="block text-xs">Editada el {{ c.editadaEn | fecha }}</span> }
+              </td>
               <td class="text-right font-semibold tabular-nums">{{ c.total | dinero }}</td>
-              <td class="text-right">
+              <td class="whitespace-nowrap text-right">
                 <button type="button" class="btn-fantasma min-h-8 px-3" (click)="ver(c)" [attr.aria-label]="'Ver compra del ' + (c.fecha | fecha: 'fecha')">Ver</button>
+                <button type="button" class="btn-fantasma min-h-8 px-3" (click)="editar(c.id)" [attr.aria-label]="'Editar compra del ' + (c.fecha | fecha: 'fecha')">Editar</button>
               </td>
             </tr>
           }
@@ -68,9 +72,17 @@ import { CompraFormComponent } from './compra-form.component';
       }
     </app-modal>
 
+    <app-modal [abierto]="!!edicion()" titulo="Editar compra" ancho="grande" (cerrar)="edicion.set(null)">
+      @if (edicion(); as e) {
+        <app-compra-form [empresas]="empresasParaEditar(e)" [compra]="e" (guardado)="editada($event)" (sinCambios)="sinCambios()"
+                         (recargar)="editar(e.id)" (cancelado)="edicion.set(null)" />
+      }
+    </app-modal>
+
     <app-modal [abierto]="!!detalle()" titulo="Detalle de la compra" ancho="grande" (cerrar)="detalle.set(null)">
       @if (detalle(); as d) {
         <p class="mb-3 text-sm text-muted">{{ d.fecha | fecha: 'fecha' }}{{ d.empresa ? ' · ' + d.empresa : '' }}{{ d.notas ? ' · ' + d.notas : '' }}</p>
+        @if (d.editadaEn) { <p class="mb-3 text-xs text-muted">Editada el {{ d.editadaEn | fecha }}</p> }
         <div class="overflow-x-auto">
           <table class="tabla">
             <thead><tr><th scope="col">Producto</th><th scope="col" class="text-right">Cant.</th><th scope="col" class="text-right">Costo</th>
@@ -90,8 +102,14 @@ import { CompraFormComponent } from './compra-form.component';
           </table>
         </div>
         <p class="mt-4 text-right text-lg">Total <strong class="tabular-nums">{{ d.total | dinero }}</strong></p>
+        <app-historial-ediciones [ediciones]="d.ediciones" />
       }
-      <div pie><button type="button" class="btn-secundario" (click)="detalle.set(null)">Cerrar</button></div>
+      <div pie>
+        @if (detalle(); as d) {
+          <button type="button" class="btn-secundario" (click)="editarDesdeDetalle(d)">Editar</button>
+        }
+        <button type="button" class="btn-secundario" (click)="detalle.set(null)">Cerrar</button>
+      </div>
     </app-modal>
   `,
 })
@@ -108,6 +126,7 @@ export class ComprasPage {
   protected readonly empresasActivas = signal<Empresa[]>([]);
   protected readonly nueva = signal(false);
   protected readonly detalle = signal<CompraDetalle | null>(null);
+  protected readonly edicion = signal<CompraDetalle | null>(null);
 
   constructor() {
     void this.cargar();
@@ -139,6 +158,41 @@ export class ComprasPage {
     } catch (e) {
       this.toast.error(e);
     }
+  }
+
+  /** Carga el detalle fresco (con `version`) y abre el formulario de edición. */
+  protected async editar(id: string): Promise<void> {
+    try {
+      this.edicion.set(await firstValueFrom(this.api.obtener(id)));
+    } catch (e) {
+      this.toast.error(e);
+    }
+  }
+
+  protected editarDesdeDetalle(d: CompraDetalle): void {
+    this.detalle.set(null);
+    void this.editar(d.id);
+  }
+
+  /** Empresas activas, más la actual de la compra aunque esté inactiva (para no perderla al guardar). */
+  protected empresasParaEditar(c: CompraDetalle): Empresa[] {
+    const activas = this.empresasActivas();
+    const actual = c.empresaId ? this.empresas().find((e) => e.id === c.empresaId) : undefined;
+    return actual && !activas.some((e) => e.id === actual.id) ? [...activas, actual] : activas;
+  }
+
+  protected editada(c: CompraDetalle): void {
+    this.edicion.set(null);
+    this.toast.exito('Compra actualizada');
+    void this.cargar();
+    if (this.detalle()?.id === c.id) {
+      this.detalle.set(c);
+    }
+  }
+
+  protected sinCambios(): void {
+    this.edicion.set(null);
+    this.toast.info('No había cambios');
   }
 
   protected guardada(c: CompraDetalle): void {

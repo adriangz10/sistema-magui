@@ -2,6 +2,7 @@ import { HttpClient } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import { Observable } from 'rxjs';
 import { API_BASE_URL } from '../config/api.config';
+import { OrigenOperacion } from '../config/origen';
 import { FechaISO, Monto, Pagina, parametros } from './modelos';
 
 export interface CompraResumen {
@@ -13,9 +14,41 @@ export interface CompraResumen {
   productos: number;
   unidades: number;
   notas: string | null;
+  /** Sube 1 con cada edición; se envía al editar (control de concurrencia). */
+  version: number;
+  /** Instante de la última edición; null si nunca se editó. */
+  editadaEn: string | null;
+}
+
+/** Cambio de un campo de la cabecera o de un renglón (valores ya formateables según `campo`). */
+export interface CambioCampo {
+  campo: string;
+  antes: string | number | null;
+  despues: string | number | null;
+  antesId?: string | null;
+  despuesId?: string | null;
+}
+
+export interface CambioRenglon {
+  accion: 'MODIFICADO' | 'AGREGADO' | 'QUITADO';
+  itemId?: string;
+  productoId: string;
+  producto: string;
+  cambios: CambioCampo[];
+}
+
+export interface EdicionCompra {
+  id: string;
+  fecha: string;
+  origen: OrigenOperacion;
+  motivo: string | null;
+  version: number;
+  cabecera: CambioCampo[];
+  renglones: CambioRenglon[];
 }
 
 export interface CompraDetalle extends CompraResumen {
+  ediciones: EdicionCompra[];
   items: {
     id: string;
     productoId: string;
@@ -27,6 +60,16 @@ export interface CompraDetalle extends CompraResumen {
     precioVentaNuevo: Monto | null;
     vencimiento: FechaISO | null;
   }[];
+}
+
+/** Cuerpo de PUT /compras/{id}. Sin `items` los renglones no cambian (US-001a). */
+export interface EditarCompra {
+  fecha: FechaISO;
+  empresaId: string;
+  notas: string;
+  version: number;
+  origen: OrigenOperacion;
+  motivo?: string;
 }
 
 export interface NuevaCompra {
@@ -53,5 +96,9 @@ export class ComprasApi {
 
   registrar(c: NuevaCompra): Observable<CompraDetalle> {
     return this.http.post<CompraDetalle>(`${this.base}/compras`, c);
+  }
+
+  editar(id: string, c: EditarCompra): Observable<CompraDetalle> {
+    return this.http.put<CompraDetalle>(`${this.base}/compras/${id}`, c);
   }
 }

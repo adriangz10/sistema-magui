@@ -15,6 +15,9 @@ import (
 // MaxItems por compra (evita cargas accidentales enormes).
 const MaxItems = 300
 
+// MaxNotas es el largo máximo de las notas de una compra.
+const MaxNotas = 500
+
 // Item es un renglón de la compra: un producto con su cantidad y costo.
 type Item struct {
 	ID               string
@@ -37,6 +40,9 @@ type Compra struct {
 	Items     []Item
 	Total     dinero.Dinero
 	CreatedAt time.Time
+	Version   int       // control optimista: sube 1 por edición efectiva
+	UpdatedAt time.Time // última edición (igual a CreatedAt si nunca se editó)
+	Empresa   string    // nombre de la empresa (solo lectura, para el historial de ediciones)
 }
 
 // Unidades devuelve la cantidad total de unidades compradas.
@@ -48,12 +54,14 @@ func (c Compra) Unidades() int {
 	return n
 }
 
-// NuevaCompra valida y arma la compra; el total es la suma de los subtotales.
-func NuevaCompra(id string, fechaCompra time.Time, empresaID, notas string, items []Item, ahora time.Time) (Compra, error) {
-	var v errores.Validacion
+// validarCabecera valida lo que comparten el alta y la edición: notas y fecha no futura.
+func validarCabecera(v *errores.Validacion, fechaCompra time.Time, notas string, ahora time.Time) {
 	v.Si(fechaCompra.After(ahora.Add(time.Hour)), "fecha", "La fecha no puede ser futura")
-	notas = strings.TrimSpace(notas)
-	v.Si(utf8.RuneCountInString(notas) > 500, "notas", "Máximo 500 caracteres")
+	v.Si(utf8.RuneCountInString(notas) > MaxNotas, "notas", "Máximo 500 caracteres")
+}
+
+// validarItems valida los renglones y devuelve el total. Normaliza vencimientos vacíos.
+func validarItems(v *errores.Validacion, items []Item) dinero.Dinero {
 	v.Si(len(items) == 0, "items", "Agregá al menos un producto")
 	v.Si(len(items) > MaxItems, "items", fmt.Sprintf("Máximo %d renglones por compra", MaxItems))
 
@@ -70,11 +78,20 @@ func NuevaCompra(id string, fechaCompra time.Time, empresaID, notas string, item
 		}
 		total = total.Sumar(it.Subtotal())
 	}
+	return total
+}
+
+// NuevaCompra valida y arma la compra; el total es la suma de los subtotales.
+func NuevaCompra(id string, fechaCompra time.Time, empresaID, notas string, items []Item, ahora time.Time) (Compra, error) {
+	var v errores.Validacion
+	notas = strings.TrimSpace(notas)
+	validarCabecera(&v, fechaCompra, notas, ahora)
+	total := validarItems(&v, items)
 	if err := v.Err(); err != nil {
 		return Compra{}, err
 	}
 
-	c := Compra{ID: id, Fecha: fechaCompra.UTC(), Items: items, Total: total, CreatedAt: ahora}
+	c := Compra{ID: id, Fecha: fechaCompra.UTC(), Items: items, Total: total, CreatedAt: ahora, Version: 1, UpdatedAt: ahora}
 	if e := strings.TrimSpace(empresaID); e != "" {
 		c.EmpresaID = &e
 	}
@@ -88,6 +105,11 @@ func NuevaCompra(id string, fechaCompra time.Time, empresaID, notas string, item
 var (
 	ErrCompraNoEncontrada   = errores.NoEncontrado("compra_no_encontrada", "La compra no existe")
 	ErrProductoNoEncontrado = errores.NoEncontrado("producto_no_encontrado", "Uno de los productos no existe")
+
+	// ErrVersionDesactualizada: otra persona editó la compra después de que se leyó (US-001a, ADR 0002).
+	ErrVersionDesactualizada = errores.Conflicto("version_desactualizada", "Otra persona modificó esta compra, recargá")
+	// ErrRenglonesNoEditables: editar renglones llega con US-001b.
+	ErrRenglonesNoEditables = errores.Invalido("renglones_no_editables", "Editar renglones todavía no está disponible")
 )
 
 // ErrProductoNoComprable: los combos no se compran, se compran sus componentes.

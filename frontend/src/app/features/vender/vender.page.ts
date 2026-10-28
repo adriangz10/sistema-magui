@@ -3,8 +3,8 @@ import { firstValueFrom } from 'rxjs';
 import { CircleCheck, LucideAngularModule } from 'lucide-angular';
 import { ApiError } from '../../core/api/api-error';
 import { ProductoResumen } from '../../core/api/catalogo.api';
-import { OrigenVenta, VentaDetalle, VentasApi } from '../../core/api/ventas.api';
-import { ES_ESCRITORIO } from '../../core/config/plataforma';
+import { VentaDetalle, VentasApi } from '../../core/api/ventas.api';
+import { origenDispositivo } from '../../core/config/origen';
 import { EscritorioService } from '../../core/escritorio/escritorio.service';
 import { ConexionService } from '../../core/red/conexion.service';
 import { ConfirmacionService } from '../../core/ui/confirmacion.service';
@@ -173,12 +173,4 @@ export class VenderPage {
     const nombres: Record<string, string> = { EFECTIVO: 'Efectivo', TRANSFERENCIA: 'Transferencia', QR: 'QR', TARJETA: 'Tarjeta' };
     return v.metodos.map((m) => nombres[m] ?? m).join(' + ');
   }
-}
-
-/** En pantallas táctiles (celular) la venta queda marcada como MOVIL; en el escritorio, DESKTOP. */
-function origenDispositivo(): OrigenVenta {
-  if (ES_ESCRITORIO) {
-    return 'DESKTOP';
-  }
-  return globalThis.matchMedia?.('(pointer: coarse)').matches ? 'MOVIL' : 'WEB';
 }

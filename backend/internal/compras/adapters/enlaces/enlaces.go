@@ -32,6 +32,14 @@ func (c Catalogo) ValidarEmpresa(ctx context.Context, id string) error {
 	return err
 }
 
+func (c Catalogo) NombreEmpresa(ctx context.Context, id string) (string, error) {
+	e, err := c.Svc.ObtenerEmpresa(ctx, id)
+	if err != nil {
+		return "", err
+	}
+	return e.Nombre, nil
+}
+
 func (c Catalogo) RegistrarCostos(ctx context.Context, costos []application.CostoProducto, motivo string) error {
 	cambios := make([]catalogo.CostoCompra, len(costos))
 	for i, co := range costos {

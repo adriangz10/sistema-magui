@@ -21,6 +21,16 @@ type Repositorio interface {
 	Guardar(ctx context.Context, c domain.Compra) error
 	Obtener(ctx context.Context, id string) (CompraDetalle, error)
 	Listar(ctx context.Context, f Filtro, p paginacion.Solicitud) ([]CompraResumen, int, error)
+
+	// ObtenerParaEditar lee la compra con sus renglones y bloquea su fila hasta el fin de la
+	// transacción (SELECT … FOR UPDATE, ADR 0002).
+	ObtenerParaEditar(ctx context.Context, id string) (domain.Compra, error)
+	// ActualizarCompra graba la cabecera y la versión nuevas si la fila sigue en versionAnterior;
+	// si no, devuelve domain.ErrVersionDesactualizada.
+	ActualizarCompra(ctx context.Context, c domain.Compra, versionAnterior int) error
+	GuardarEdicion(ctx context.Context, e domain.Edicion) error
+	// Ediciones devuelve el historial de la compra, de la más reciente a la más vieja.
+	Ediciones(ctx context.Context, compraID string) ([]domain.Edicion, error)
 }
 
 // ProductoCompra son los datos del catálogo que necesita una compra.
@@ -40,6 +50,8 @@ type CostoProducto struct {
 type Catalogo interface {
 	Productos(ctx context.Context, ids []string) (map[string]ProductoCompra, error)
 	ValidarEmpresa(ctx context.Context, id string) error
+	// NombreEmpresa devuelve el nombre de la empresa o empresa_no_encontrada.
+	NombreEmpresa(ctx context.Context, id string) (string, error)
 	RegistrarCostos(ctx context.Context, costos []CostoProducto, motivo string) error
 }
 
@@ -75,6 +87,8 @@ type CompraResumen struct {
 	Productos int           `json:"productos"` // renglones
 	Unidades  int           `json:"unidades"`
 	Notas     *string       `json:"notas"`
+	Version   int           `json:"version"`
+	EditadaEn *time.Time    `json:"editadaEn"` // null si nunca se editó
 }
 
 type ItemDTO struct {
@@ -91,7 +105,19 @@ type ItemDTO struct {
 
 type CompraDetalle struct {
 	CompraResumen
-	Items []ItemDTO `json:"items"`
+	Items     []ItemDTO    `json:"items"`
+	Ediciones []EdicionDTO `json:"ediciones"`
+}
+
+// EdicionDTO es una entrada del historial de ediciones (ADR 0005, sin el campo `v`).
+type EdicionDTO struct {
+	ID        string                 `json:"id"`
+	Fecha     time.Time              `json:"fecha"`
+	Origen    domain.Origen          `json:"origen"`
+	Motivo    *string                `json:"motivo"`
+	Version   int                    `json:"version"`
+	Cabecera  []domain.CambioCampo   `json:"cabecera"`
+	Renglones []domain.CambioRenglon `json:"renglones"`
 }
 
 // ItemCmd es un renglón tal como lo carga la usuaria.
@@ -179,7 +205,7 @@ func (s *Servicio) RegistrarCompra(ctx context.Context, cmd ComandoCompra) (Comp
 	if err != nil {
 		return CompraDetalle{}, err
 	}
-	return s.repo.Obtener(ctx, compra.ID)
+	return s.ObtenerCompra(ctx, compra.ID)
 }
 
 func (s *Servicio) validarProductos(ctx context.Context, c domain.Compra) error {
@@ -205,7 +231,20 @@ func (s *Servicio) validarProductos(ctx context.Context, c domain.Compra) error 
 
 // ObtenerCompra devuelve el detalle de una compra.
 func (s *Servicio) ObtenerCompra(ctx context.Context, id string) (CompraDetalle, error) {
-	return s.repo.Obtener(ctx, id)
+	det, err := s.repo.Obtener(ctx, id)
+	if err != nil {
+		return CompraDetalle{}, err
+	}
+	eds, err := s.repo.Ediciones(ctx, id)
+	if err != nil {
+		return CompraDetalle{}, err
+	}
+	det.Ediciones = make([]EdicionDTO, len(eds))
+	for i, e := range eds {
+		det.Ediciones[i] = EdicionDTO{ID: e.ID, Fecha: e.Fecha, Origen: e.Origen, Motivo: e.Motivo, Version: e.Version,
+			Cabecera: e.Cambios.Cabecera, Renglones: e.Cambios.Renglones}
+	}
+	return det, nil
 }
 
 // ListarCompras devuelve las compras, de la más reciente a la más vieja.

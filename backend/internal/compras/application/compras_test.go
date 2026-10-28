@@ -16,15 +16,60 @@ import (
 	"magui/internal/kernel/tx"
 )
 
-type repoMem struct{ compras map[string]domain.Compra }
+type repoMem struct {
+	compras      map[string]domain.Compra
+	ediciones    []domain.Edicion
+	falloEdicion error
+	escrituras   int
+}
 
-func (r *repoMem) Guardar(_ context.Context, c domain.Compra) error { r.compras[c.ID] = c; return nil }
+func (r *repoMem) Guardar(_ context.Context, c domain.Compra) error {
+	if c.Version == 0 {
+		c.Version = 1
+	}
+	r.compras[c.ID] = c
+	return nil
+}
+func (r *repoMem) ObtenerParaEditar(_ context.Context, id string) (domain.Compra, error) {
+	c, ok := r.compras[id]
+	if !ok {
+		return domain.Compra{}, domain.ErrCompraNoEncontrada
+	}
+	if c.EmpresaID != nil {
+		c.Empresa = "Natura"
+	}
+	return c, nil
+}
+func (r *repoMem) ActualizarCompra(_ context.Context, c domain.Compra, v int) error {
+	if r.compras[c.ID].Version != v {
+		return domain.ErrVersionDesactualizada
+	}
+	r.escrituras++
+	r.compras[c.ID] = c
+	return nil
+}
+func (r *repoMem) GuardarEdicion(_ context.Context, e domain.Edicion) error {
+	if r.falloEdicion != nil {
+		return r.falloEdicion
+	}
+	r.ediciones = append(r.ediciones, e)
+	return nil
+}
+func (r *repoMem) Ediciones(_ context.Context, id string) ([]domain.Edicion, error) {
+	var out []domain.Edicion
+	for i := len(r.ediciones) - 1; i >= 0; i-- {
+		if r.ediciones[i].CompraID == id {
+			out = append(out, r.ediciones[i])
+		}
+	}
+	return out, nil
+}
 func (r *repoMem) Obtener(_ context.Context, id string) (CompraDetalle, error) {
 	c, ok := r.compras[id]
 	if !ok {
 		return CompraDetalle{}, domain.ErrCompraNoEncontrada
 	}
-	return CompraDetalle{CompraResumen: CompraResumen{ID: c.ID, Total: c.Total, Productos: len(c.Items), Unidades: c.Unidades()}}, nil
+	return CompraDetalle{CompraResumen: CompraResumen{ID: c.ID, Version: c.Version, Total: c.Total, Productos: len(c.Items), Unidades: c.Unidades()}}, nil
 }
 func (r *repoMem) Listar(context.Context, Filtro, paginacion.Solicitud) ([]CompraResumen, int, error) {
 	return nil, len(r.compras), nil
@@ -50,6 +95,12 @@ func (c *catalogoMem) ValidarEmpresa(_ context.Context, id string) error {
 		return errores.NoEncontrado("empresa_no_encontrada", "La empresa no existe")
 	}
 	return nil
+}
+func (c *catalogoMem) NombreEmpresa(ctx context.Context, id string) (string, error) {
+	if err := c.ValidarEmpresa(ctx, id); err != nil {
+		return "", err
+	}
+	return "Natura", nil
 }
 func (c *catalogoMem) RegistrarCostos(_ context.Context, cs []CostoProducto, motivo string) error {
 	c.costos, c.motivo = append(c.costos, cs...), motivo
