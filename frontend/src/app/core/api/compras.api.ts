@@ -66,9 +66,9 @@ export interface CompraDetalle extends CompraResumen {
   }[];
 }
 
-/** Renglón existente dentro del PUT (US-001b): `id` obligatorio, mismo `productoId`. */
+/** Renglón del PUT: con `id` es existente (mismo `productoId`); sin `id` es nuevo (US-001c). */
 export interface ItemEditado {
-  id: string;
+  id?: string;
   productoId: string;
   cantidad: number;
   costoUnitario: Monto;

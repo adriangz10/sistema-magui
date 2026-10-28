@@ -49,7 +49,7 @@ func TestQAPutRenglonValoresInvalidos(t *testing.T) {
 		{"costo con 3 decimales", `{"fecha":"2026-10-20","version":1,"items":[{"id":"i1","productoId":"p1","cantidad":4,"costoUnitario":"100.005"}]}`, 422, "json_invalido"},
 		{"vencimiento no fecha", `{"fecha":"2026-10-20","version":1,"items":[{"id":"i1","productoId":"p1","cantidad":4,"costoUnitario":"100","vencimiento":"mañana"}]}`, 422, "json_invalido"},
 		{"campo desconocido", `{"fecha":"2026-10-20","version":1,"items":[{"id":"i1","productoId":"p1","cantidad":4,"costoUnitario":"100","consumido":3}]}`, 422, "json_invalido"},
-		{"sin id", `{"fecha":"2026-10-20","version":1,"items":[{"productoId":"p1","cantidad":4,"costoUnitario":"100"}]}`, 422, "renglones_nuevos_no_disponibles"},
+		{"sin id", `{"fecha":"2026-10-20","version":1,"items":[{"productoId":"p1","cantidad":4,"costoUnitario":"100"}]}`, 409, "compra_consumida"},
 		{"producto ajeno", `{"fecha":"2026-10-20","version":1,"items":[{"id":"i1","productoId":"p9","cantidad":4,"costoUnitario":"100"}]}`, 422, "items[0].productoId"},
 	}
 	for _, c := range casos {

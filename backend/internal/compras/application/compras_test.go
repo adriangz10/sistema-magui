@@ -22,6 +22,8 @@ type repoMem struct {
 	falloEdicion  error
 	escrituras    int
 	itemsEscritos int
+	agregados     []domain.Item
+	quitados      []string
 }
 
 func (r *repoMem) Guardar(_ context.Context, c domain.Compra) error {
@@ -61,6 +63,33 @@ func (r *repoMem) ActualizarItems(_ context.Context, items []domain.Item) error 
 					r.itemsEscritos++
 				}
 			}
+		}
+	}
+	return nil
+}
+
+func (r *repoMem) AgregarItems(_ context.Context, compraID string, items []domain.Item) error {
+	c := r.compras[compraID]
+	c.Items = append(append([]domain.Item(nil), c.Items...), items...)
+	r.compras[compraID] = c
+	r.agregados = append(r.agregados, items...)
+	return nil
+}
+
+// QuitarItems simula la baja lógica: el renglón deja de verse en la compra (filtro quitado_en IS NULL).
+func (r *repoMem) QuitarItems(_ context.Context, ids []string, _ time.Time) error {
+	for _, id := range ids {
+		for cid, c := range r.compras {
+			var resto []domain.Item
+			for _, it := range c.Items {
+				if it.ID == id {
+					r.quitados = append(r.quitados, id)
+					continue
+				}
+				resto = append(resto, it)
+			}
+			c.Items = resto
+			r.compras[cid] = c
 		}
 	}
 	return nil

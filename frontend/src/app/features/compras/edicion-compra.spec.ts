@@ -1,6 +1,7 @@
 import { CompraDetalle } from '../../core/api/compras.api';
 import {
-  armarEdicion, armarItems, cabeceraDe, diaArgentino, formatearValorCambio, hayCambios, hayCambiosRenglones, minimoCantidad,
+  armarEdicion, armarItems, cabeceraDe, detalleRenglonHistorial, diaArgentino, formatearValorCambio, hayCambios, hayCambiosRenglones,
+  mapearErroresServidor, minimoCantidad, motivoNoQuitar, renglonNuevo,
   renglonesDe, resumenEfectos, seAplicoEdicion, totalRenglones, validarRenglones,
 } from './edicion-compra';
 
@@ -128,5 +129,93 @@ describe('edicion de renglones (US-001b)', () => {
     rs[1].precioNuevo = '3000.00';
     rs[1].precioActual = null;
     expect(resumenEfectos(rs)[0]).toContain('queda en');
+  });
+});
+
+const chronos = { id: 'p3', nombre: 'Chronos Crema', sku: 'P3', precioVenta: '20000.00', costo: '15000.00' };
+
+describe('agregar y quitar renglones (US-001c)', () => {
+  it('manda los nuevos sin id al final y omite los quitados', () => {
+    const rs = renglonesDe(conItems);
+    rs.splice(1, 0, renglonNuevo(1, chronos));
+    rs[1].cantidad = '2';
+    rs[2].quitado = true;
+    const items = armarItems(rs);
+    expect(items).toEqual([
+      { id: 'i1', productoId: 'p1', cantidad: 4, costoUnitario: '35520.00', precioVentaNuevo: '62000.00', vencimiento: '2027-09-30' },
+      { productoId: 'p3', cantidad: 2, costoUnitario: '15000.00', precioVentaNuevo: null, vencimiento: null },
+    ]);
+    expect('id' in items[1]).toBe(false);
+    expect(totalRenglones(rs)).toBe('172080.00');
+  });
+
+  it('bloquea quitar con consumo y el último renglón activo', () => {
+    const rs = renglonesDe(conItems);
+    expect(motivoNoQuitar(rs[0], rs)).toBe('No se puede quitar. Podés bajar la cantidad hasta 3.');
+    expect(motivoNoQuitar({ ...rs[0], consumido: 4 }, rs)).toBe('No se puede quitar porque ya salió todo el lote.');
+    expect(motivoNoQuitar(rs[1], rs)).toBeNull();
+    rs[1].quitado = true;
+    const ultimo = { ...rs[0], consumido: 0 };
+    expect(motivoNoQuitar(ultimo, [ultimo, rs[1]])).toBe('La compra necesita al menos un producto.');
+    const nuevo = renglonNuevo(2, chronos);
+    expect(motivoNoQuitar(nuevo, [ultimo, rs[1], nuevo])).toBeNull();
+  });
+
+  it('detecta cambios por agregar, quitar y deshacer', () => {
+    const rs = renglonesDe(conItems);
+    expect(hayCambiosRenglones(conItems, rs)).toBe(false);
+    rs[1].quitado = true;
+    expect(hayCambiosRenglones(conItems, rs)).toBe(true);
+    rs[1].quitado = false;
+    expect(hayCambiosRenglones(conItems, rs)).toBe(false);
+    expect(hayCambiosRenglones(conItems, [...rs, renglonNuevo(1, chronos)])).toBe(true);
+  });
+
+  it('mapea items[i] al array realmente enviado y quitados[id] queda por id', () => {
+    const rs = renglonesDe(conItems);
+    rs[0].quitado = true; // en pantalla: [i1 quitado, i2, nuevo]
+    const lista = [...rs, renglonNuevo(1, chronos)];
+    const e = mapearErroresServidor(lista, {
+      'items[0].cantidad': 'sobre i2', 'items[1].costoUnitario': 'sobre el nuevo', 'quitados[i1]': 'no se puede quitar', items: 'general',
+    });
+    expect(e).toEqual({
+      'items[1].cantidad': 'sobre i2', 'items[2].costoUnitario': 'sobre el nuevo', 'quitados[i1]': 'no se puede quitar', items: 'general',
+    });
+  });
+
+  it('un nuevo puesto antes de un existente igual se envía al final', () => {
+    const rs = renglonesDe(conItems);
+    const lista = [rs[0], renglonNuevo(1, chronos), rs[1]];
+    expect(mapearErroresServidor(lista, { 'items[1].cantidad': 'x' })).toEqual({ 'items[2].cantidad': 'x' });
+  });
+
+  it('resume agregado y quitado', () => {
+    const rs = renglonesDe(conItems);
+    rs[1].quitado = true;
+    const nuevo = renglonNuevo(1, chronos);
+    nuevo.cantidad = '2';
+    expect(resumenEfectos([...rs, nuevo])).toEqual([
+      'Se quita Ekos Jabón (−10 del stock)',
+      'Se agrega Chronos Crema (+2 al stock)',
+    ]);
+  });
+
+  it('no deja la compra sin renglones activos ni pasar de 300', () => {
+    const rs = renglonesDe(conItems);
+    rs.forEach((r) => (r.quitado = true));
+    expect(validarRenglones(rs)['items']).toBe('Agregá al menos un producto');
+    const muchos = Array.from({ length: 301 }, (_, i) => renglonNuevo(i, chronos));
+    expect(validarRenglones(muchos)['items']).toBe('Máximo 300 renglones por compra');
+  });
+
+  it('describe renglones agregados y quitados del historial', () => {
+    const cambios = [{ campo: 'cantidad', antes: null, despues: 2 }, { campo: 'costoUnitario', antes: null, despues: '15000.00' }];
+    expect(detalleRenglonHistorial({ accion: 'AGREGADO', productoId: 'p3', producto: 'Chronos Crema', cambios }).cantidad).toBe('×2');
+    const q = detalleRenglonHistorial({
+      accion: 'QUITADO', productoId: 'p2', producto: 'Ekos',
+      cambios: [{ campo: 'cantidad', antes: 10, despues: null }, { campo: 'vencimiento', antes: '2027-09-30', despues: null }],
+    });
+    expect(q.cantidad).toBe('×10');
+    expect(q.resto).toEqual(['vence 30/09/2027']);
   });
 });

@@ -26,6 +26,9 @@ func compraBase(t *testing.T) (*Servicio, *repoMem, *catalogoMem, *inventarioMem
 	if err != nil {
 		t.Fatal(err)
 	}
+	// El costo del catálogo es distinto al del renglón (p. ej. editado a mano): cambiar solo la fecha no debe pisarlo (RN-EC-16/19).
+	costo := d("999")
+	cat.productos["kaiak"] = ProductoCompra{Nombre: "Kaiak", Costo: &costo}
 	cat.costos, inv.ingresos = nil, nil
 	return s, repo, cat, inv, det.ID
 }

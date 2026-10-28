@@ -37,6 +37,8 @@ func (r *repo) ActualizarCompra(_ context.Context, c domain.Compra, _ int) error
 func (r *repo) GuardarEdicion(context.Context, domain.Edicion) error             { return nil }
 func (r *repo) Ediciones(context.Context, string) ([]domain.Edicion, error)      { return nil, nil }
 func (r *repo) ActualizarItems(context.Context, []domain.Item) error             { return nil }
+func (r *repo) AgregarItems(context.Context, string, []domain.Item) error        { return nil }
+func (r *repo) QuitarItems(context.Context, []string, time.Time) error           { return nil }
 func (r *repo) CompraMasReciente(context.Context, string) (*application.CompraReciente, error) {
 	return &application.CompraReciente{CompraID: r.c.ID, Costo: dinero.MustParse("10")}, nil
 }
@@ -109,7 +111,7 @@ func TestPutCompra(t *testing.T) {
 		{"consumida", `{"fecha":"2026-10-20","version":1,"items":[{"id":"i1","productoId":"p1","cantidad":2,"costoUnitario":"100"}]}`, "compra_consumida", 409},
 		{"campo del renglón", `{"fecha":"2026-10-20","version":1,"items":[{"id":"i1","productoId":"p1","cantidad":0,"costoUnitario":"100"}]}`, "items[0].cantidad", 422},
 		{"producto distinto", `{"fecha":"2026-10-20","version":1,"items":[{"id":"i1","productoId":"p2","cantidad":4,"costoUnitario":"100"}]}`, "items[0].productoId", 422},
-		{"renglón nuevo", `{"fecha":"2026-10-20","version":1,"items":[{"id":"i1","productoId":"p1","cantidad":4,"costoUnitario":"100"},{"productoId":"p1","cantidad":1,"costoUnitario":"1"}]}`, "renglones_nuevos_no_disponibles", 422},
+		{"renglón nuevo", `{"fecha":"2026-10-20","version":1,"items":[{"id":"i1","productoId":"p1","cantidad":4,"costoUnitario":"100"},{"productoId":"p1","cantidad":1,"costoUnitario":"1"}]}`, `"version":2`, 200},
 		{"un solo renglón", `{"fecha":"2026-10-20","version":1,"items":[{"id":"i1","productoId":"p1","cantidad":4,"costoUnitario":"100"}]}`, "", 200},
 		{"fecha vacía", `{"version":1}`, "datos_invalidos", 422},
 	}

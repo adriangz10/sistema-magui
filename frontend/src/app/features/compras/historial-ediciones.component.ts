@@ -1,7 +1,7 @@
 import { ChangeDetectionStrategy, Component, input } from '@angular/core';
-import { CambioCampo, EdicionCompra } from '../../core/api/compras.api';
+import { CambioCampo, CambioRenglon, EdicionCompra } from '../../core/api/compras.api';
 import { FechaPipe } from '../../shared/formato/fecha';
-import { ETIQUETA_CAMPO, formatearValorCambio, ORIGEN_ETIQUETA } from './edicion-compra';
+import { detalleRenglonHistorial, ETIQUETA_CAMPO, formatearValorCambio, ORIGEN_ETIQUETA } from './edicion-compra';
 
 /** Historial de ediciones de una compra, de la más reciente a la más vieja. */
 @Component({
@@ -26,11 +26,17 @@ import { ETIQUETA_CAMPO, formatearValorCambio, ORIGEN_ETIQUETA } from './edicion
                 }
                 @for (r of e.renglones; track $index) {
                   <li>
-                    {{ r.producto }}
-                    @if (r.accion === 'AGREGADO') { <span class="badge-ok">Agregado</span> }
-                    @else if (r.accion === 'QUITADO') { <span class="badge-danger">Quitado</span> }
-                    @for (c of r.cambios; track c.campo) {
-                      <span class="block pl-3">{{ etiqueta(c) }}: <span class="text-muted">{{ valor(c.campo, c.antes, c.despues) }}</span> → <strong>{{ valor(c.campo, c.despues, c.antes) }}</strong></span>
+                    @if (r.accion === 'AGREGADO' || r.accion === 'QUITADO') {
+                      @let d = detalle(r);
+                      <span [class]="r.accion === 'AGREGADO' ? 'badge-ok' : 'badge-danger'">{{ r.accion === 'AGREGADO' ? 'Agregado' : 'Quitado' }}</span>
+                      <strong>{{ r.producto }}</strong>
+                      @if (d.cantidad) { <span class="tabular-nums"> {{ d.cantidad }}</span> }
+                      @if (d.resto.length) { <span class="text-muted"> · {{ d.resto.join(' · ') }}</span> }
+                    } @else {
+                      {{ r.producto }}
+                      @for (c of r.cambios; track c.campo) {
+                        <span class="block pl-3">{{ etiqueta(c) }}: <span class="text-muted">{{ valor(c.campo, c.antes, c.despues) }}</span> → <strong>{{ valor(c.campo, c.despues, c.antes) }}</strong></span>
+                      }
                     }
                   </li>
                 }
@@ -49,6 +55,9 @@ export class HistorialEdicionesComponent {
 
   protected origen(e: EdicionCompra): string {
     return ORIGEN_ETIQUETA[e.origen] ?? e.origen;
+  }
+  protected detalle(r: CambioRenglon) {
+    return detalleRenglonHistorial(r);
   }
   protected etiqueta(c: CambioCampo): string {
     return ETIQUETA_CAMPO[c.campo] ?? c.campo;

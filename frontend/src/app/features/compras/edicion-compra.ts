@@ -1,4 +1,4 @@
-import { CambioCampo, CompraDetalle, EditarCompra, ItemEditado } from '../../core/api/compras.api';
+import { CambioCampo, CambioRenglon, CompraDetalle, EditarCompra, ItemEditado } from '../../core/api/compras.api';
 import { OrigenOperacion } from '../../core/config/origen';
 import { aCentavos, deCentavos, formatearDinero } from '../../shared/formato/dinero';
 import { formatearFecha } from '../../shared/formato/fecha';
@@ -88,7 +88,7 @@ export function formatearValorCambio(campo: string, valor: CambioCampo['antes'],
 
 export const ORIGEN_ETIQUETA: Record<OrigenOperacion, string> = { WEB: 'Web', MOVIL: 'Celular', DESKTOP: 'Escritorio' };
 
-/** Renglón existente tal como se edita en pantalla. */
+/** Renglón tal como se edita en pantalla: existente (con `id` del servidor) o nuevo (`nuevo`, id local). */
 export interface RenglonEditable {
   id: string;
   productoId: string;
@@ -100,13 +100,19 @@ export interface RenglonEditable {
   /** AAAA-MM-DD o vacío */
   vencimiento: string;
   consumido: number;
-  /** Cantidad con la que se leyó la compra. */
+  /** Cantidad con la que se leyó la compra (0 en renglones nuevos). */
   cantidadOriginal: number;
   /** Nuevo precio con el que se leyó la compra. */
   precioNuevoOriginal: string | null;
   /** Precio de venta vigente del producto (null/undefined si no se conoce). */
   precioActual: string | null;
+  /** Renglón agregado en esta edición: se envía sin `id`. */
+  nuevo?: boolean;
+  /** Renglón existente marcado "se quitará": no se envía. */
+  quitado?: boolean;
 }
+
+export const MAX_RENGLONES = 300;
 
 export function renglonesDe(c: CompraDetalle): RenglonEditable[] {
   return c.items.map((it) => ({
@@ -117,6 +123,18 @@ export function renglonesDe(c: CompraDetalle): RenglonEditable[] {
   }));
 }
 
+/** Renglón nuevo para un producto elegido en el buscador (id local, nunca se envía). */
+export function renglonNuevo(
+  clave: number, p: { id: string; nombre: string; sku: string; precioVenta: string | null; costo: string | null },
+): RenglonEditable {
+  return {
+    id: `nuevo-${clave}`, productoId: p.id, producto: p.nombre, sku: p.sku, cantidad: 1, costo: p.costo, precioNuevo: null,
+    vencimiento: '', consumido: 0, cantidadOriginal: 0, precioNuevoOriginal: null, precioActual: p.precioVenta ?? null, nuevo: true,
+  };
+}
+
+export const activos = (rs: RenglonEditable[]): RenglonEditable[] => rs.filter((r) => !r.quitado);
+
 /** Cantidad mínima editable: lo ya consumido, y nunca menos de 1. */
 export function minimoCantidad(consumido: number): number {
   return Math.max(consumido ?? 0, 1);
@@ -126,10 +144,32 @@ export function mensajeConsumido(consumido: number): string {
   return `Ya salieron ${consumido} unidades de este lote, no podés dejar menos de ${consumido}`;
 }
 
-/** Errores locales por clave `items[i].campo`. */
+/** Por qué no se puede quitar el renglón; null si se puede. */
+export function motivoNoQuitar(r: RenglonEditable, renglones: RenglonEditable[]): string | null {
+  if (r.consumido > 0) {
+    // El "ya salieron N de M" ya está en la línea del SKU: acá solo la consecuencia.
+    return r.consumido < r.cantidadOriginal
+      ? `No se puede quitar. Podés bajar la cantidad hasta ${r.consumido}.`
+      : 'No se puede quitar porque ya salió todo el lote.';
+  }
+  if (!r.nuevo && activos(renglones).length <= 1) {
+    return 'La compra necesita al menos un producto.';
+  }
+  return null;
+}
+
+/** Errores locales por clave `items[i].campo` (i = posición en pantalla; los quitados se saltean). */
 export function validarRenglones(renglones: RenglonEditable[]): Record<string, string> {
   const e: Record<string, string> = {};
+  if (renglones.length > 0 && activos(renglones).length === 0) {
+    e['items'] = 'Agregá al menos un producto';
+  } else if (activos(renglones).length > MAX_RENGLONES) {
+    e['items'] = `Máximo ${MAX_RENGLONES} renglones por compra`;
+  }
   renglones.forEach((r, i) => {
+    if (r.quitado) {
+      return;
+    }
     const cant = Number(r.cantidad);
     if (r.cantidad === null || r.cantidad === '' || !Number.isInteger(cant) || cant < 1) {
       e[`items[${i}].cantidad`] = 'Mayor a cero';
@@ -146,10 +186,33 @@ export function validarRenglones(renglones: RenglonEditable[]): Record<string, s
   return e;
 }
 
-/** Algún campo editable de algún renglón difiere del detalle leído. */
+/**
+ * Traduce los campos del servidor a posiciones en pantalla: `items[k]` es la posición k del array enviado
+ * (sin quitados, nuevos al final) y `quitados[<id>]` ya viene por id del renglón.
+ */
+export function mapearErroresServidor(renglones: RenglonEditable[], campos: Record<string, string>): Record<string, string> {
+  const enviados = ordenEnvio(renglones);
+  const out: Record<string, string> = {};
+  for (const [clave, msg] of Object.entries(campos)) {
+    const m = /^items\[(\d+)\](.*)$/.exec(clave);
+    const destino = m ? enviados[Number(m[1])] : undefined;
+    out[m && destino ? `items[${renglones.indexOf(destino)}]${m[2]}` : clave] = msg;
+  }
+  return out;
+}
+
+/** Renglones en el orden en que se envían: existentes, luego nuevos; sin quitados. */
+function ordenEnvio(renglones: RenglonEditable[]): RenglonEditable[] {
+  return activos([...renglones.filter((r) => !r.nuevo), ...renglones.filter((r) => r.nuevo)]);
+}
+
+/** Hay algo para guardar: renglones agregados o quitados, o algún campo de un existente distinto del detalle leído. */
 export function hayCambiosRenglones(original: CompraDetalle, renglones: RenglonEditable[]): boolean {
-  return original.items.some((it, i) => {
-    const r = renglones[i];
+  if (renglones.some((r) => r.nuevo || r.quitado)) {
+    return true;
+  }
+  return original.items.some((it) => {
+    const r = renglones.find((x) => x.id === it.id);
     return !r
       || Number(r.cantidad) !== it.cantidad
       || aCentavos(r.costo) !== aCentavos(it.costoUnitario)
@@ -158,24 +221,32 @@ export function hayCambiosRenglones(original: CompraDetalle, renglones: RenglonE
   });
 }
 
-/** Lista completa de renglones para el PUT (todos con `id`, en el orden del detalle). */
+/** Lista completa para el PUT: existentes con `id`, nuevos sin `id` (al final), quitados omitidos. */
 export function armarItems(renglones: RenglonEditable[]): ItemEditado[] {
-  return renglones.map((r) => ({
-    id: r.id, productoId: r.productoId, cantidad: Number(r.cantidad), costoUnitario: r.costo!,
+  return ordenEnvio(renglones).map((r) => ({
+    ...(r.nuevo ? {} : { id: r.id }), productoId: r.productoId, cantidad: Number(r.cantidad), costoUnitario: r.costo!,
     precioVentaNuevo: r.precioNuevo, vencimiento: r.vencimiento || null,
   }));
 }
 
 export function totalRenglones(renglones: RenglonEditable[]): string {
-  return deCentavos(renglones.reduce((t, r) => t + aCentavos(r.costo) * (Number(r.cantidad) || 0), 0));
+  return deCentavos(activos(renglones).reduce((t, r) => t + aCentavos(r.costo) * (Number(r.cantidad) || 0), 0));
 }
 
-/** Efectos de stock antes de guardar: "El stock de Kaiak sube 2". */
+/** Efectos antes de guardar: "El stock de Kaiak sube 2", "Se agrega X (+N al stock)", "Se quita X (−N del stock)". */
 export function resumenEfectos(renglones: RenglonEditable[]): string[] {
   const out: string[] = [];
   for (const r of renglones) {
+    if (r.quitado) {
+      out.push(`Se quita ${r.producto} (−${r.cantidadOriginal} del stock)`);
+      continue;
+    }
     const d = (Number(r.cantidad) || 0) - r.cantidadOriginal;
-    if (d > 0) {
+    if (r.nuevo) {
+      if (d > 0) {
+        out.push(`Se agrega ${r.producto} (+${d} al stock)`);
+      }
+    } else if (d > 0) {
       out.push(`El stock de ${r.producto} sube ${d}`);
     } else if (d < 0) {
       out.push(`El stock de ${r.producto} baja ${-d}`);
@@ -191,4 +262,25 @@ export function resumenEfectos(renglones: RenglonEditable[]): string[] {
     }
   }
   return out;
+}
+
+/** Datos legibles de un renglón AGREGADO/QUITADO del historial: cantidad "×2" y detalle (costo, precio, vencimiento). */
+export function detalleRenglonHistorial(r: CambioRenglon): { cantidad: string | null; resto: string[] } {
+  const lado = r.accion === 'QUITADO' ? 'antes' : 'despues';
+  const valor = (campo: string) => r.cambios.find((c) => c.campo === campo)?.[lado] ?? null;
+  const cant = valor('cantidad');
+  const resto: string[] = [];
+  const costo = valor('costoUnitario');
+  if (costo !== null) {
+    resto.push(`costo ${formatearValorCambio('costoUnitario', costo)}`);
+  }
+  const precio = valor('precioVentaNuevo');
+  if (precio !== null) {
+    resto.push(`nuevo precio ${formatearValorCambio('precioVentaNuevo', precio)}`);
+  }
+  const venc = valor('vencimiento');
+  if (venc !== null) {
+    resto.push(`vence ${formatearValorCambio('vencimiento', venc)}`);
+  }
+  return { cantidad: cant === null ? null : `×${cant}`, resto };
 }

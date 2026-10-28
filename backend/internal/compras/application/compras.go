@@ -33,8 +33,13 @@ type Repositorio interface {
 	Ediciones(ctx context.Context, compraID string) ([]domain.Edicion, error)
 	// ActualizarItems graba cantidad, costo, precio y vencimiento de renglones existentes.
 	ActualizarItems(ctx context.Context, items []domain.Item) error
+	// AgregarItems inserta renglones nuevos en una compra existente (US-001c).
+	AgregarItems(ctx context.Context, compraID string, items []domain.Item) error
+	// QuitarItems da de baja renglones (quitado_en = ahora); el renglón y su lote se conservan (ADR 0004).
+	// Falla si algún id no es un renglón vigente.
+	QuitarItems(ctx context.Context, ids []string, ahora time.Time) error
 	// CompraMasReciente devuelve la compra más reciente que contiene al producto (por día argentino de
-	// la fecha; empate: created_at e id) con el costo de su último renglón de ese producto; nil si no hay ninguna.
+	// la fecha; empate: created_at e id) con el costo de su último renglón vigente de ese producto; nil si no hay ninguna.
 	CompraMasReciente(ctx context.Context, productoID string) (*CompraReciente, error)
 }
 
@@ -76,6 +81,7 @@ type IngresoCompra struct {
 	Cantidad     int
 	Costo        dinero.Dinero
 	Vencimiento  *fecha.Fecha
+	Nota         string // opcional (p. ej. "Edición de compra del dd/mm/aaaa" para renglones agregados)
 }
 
 // Inventario es el puerto hacia el módulo de inventario.
@@ -96,6 +102,8 @@ type AjusteRenglon struct {
 	Vencimiento *fecha.Fecha
 	CompraID    string
 	Nota        string
+	// SoloCantidad: no tocar costo ni vencimiento del lote (al quitar un renglón solo se descuenta stock).
+	SoloCantidad bool
 }
 
 // --- Modelos ---

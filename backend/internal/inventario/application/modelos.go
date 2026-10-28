@@ -105,6 +105,8 @@ type AjusteLoteCompra struct {
 	Vencimiento *fecha.Fecha
 	CompraID    string
 	Nota        string
+	// SoloCantidad: aplica solo la diferencia de cantidad; Costo y Vencimiento se ignoran (quitar un renglón).
+	SoloCantidad bool
 }
 
 // EstadoVencimientos para filtrar la lista de vencimientos.

@@ -246,6 +246,9 @@ func (s *Servicio) AjustarLoteDeCompra(ctx context.Context, a AjusteLoteCompra) 
 				return err
 			}
 		}
+		if a.SoloCantidad {
+			return nil
+		}
 		venc := a.Vencimiento
 		if venc != nil && venc.IsZero() {
 			venc = nil

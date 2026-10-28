@@ -2,7 +2,6 @@ package domain
 
 import (
 	"encoding/json"
-	"errors"
 	"strings"
 	"testing"
 
@@ -130,7 +129,7 @@ func TestRenglonesValidaciones(t *testing.T) {
 	}
 }
 
-func TestRenglonesAjenosProductoYFuncionesDeC(t *testing.T) {
+func TestRenglonesAjenosYProductoDistinto(t *testing.T) {
 	_, err := PlanificarEdicion(compraB(), pedidoB(func(rs []RenglonEdicion) { rs[1].ID = "otro" }), ahora)
 	if !strings.Contains(campos(err)["items[1].id"], "no pertenece") {
 		t.Errorf("id ajeno: %v", err)
@@ -138,18 +137,6 @@ func TestRenglonesAjenosProductoYFuncionesDeC(t *testing.T) {
 	_, err = PlanificarEdicion(compraB(), pedidoB(func(rs []RenglonEdicion) { rs[0].ProductoID = "ekos" }), ahora)
 	if !strings.Contains(campos(err)["items[0].productoId"], "quitalo y agregá otro") {
 		t.Errorf("producto: %v", err)
-	}
-	c := pedidoB(nil)
-	rs := append(*c.Renglones, RenglonEdicion{ProductoID: "p", Cantidad: 1})
-	c.Renglones = &rs
-	if err := ValidarEdicion(c, ahora); !errors.Is(err, ErrRenglonesNuevosNoDisponibles) {
-		t.Errorf("nuevo: %v", err)
-	}
-	c = pedidoB(nil)
-	un := (*c.Renglones)[:1]
-	c.Renglones = &un
-	if _, err := PlanificarEdicion(compraB(), c, ahora); !errors.Is(err, ErrQuitarRenglonesNoDisponible) {
-		t.Errorf("omitido: %v", err)
 	}
 }
 

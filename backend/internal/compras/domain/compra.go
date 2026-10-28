@@ -122,9 +122,6 @@ var (
 
 	// ErrVersionDesactualizada: otra persona editó la compra después de que se leyó (US-001a, ADR 0002).
 	ErrVersionDesactualizada = errores.Conflicto("version_desactualizada", "Otra persona modificó esta compra, recargá")
-	// Funciones de US-001c que todavía no están disponibles.
-	ErrRenglonesNuevosNoDisponibles = errores.Invalido("renglones_nuevos_no_disponibles", "Agregar renglones todavía no está disponible")
-	ErrQuitarRenglonesNoDisponible  = errores.Invalido("quitar_renglones_no_disponible", "Quitar renglones todavía no está disponible")
 )
 
 // ErrCompraConsumida: se quiso bajar un renglón por debajo de lo que ya salió de su lote.

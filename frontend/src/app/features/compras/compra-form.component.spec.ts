@@ -190,3 +190,96 @@ describe('CompraFormComponent edición de renglones', () => {
     expect('items' in (editar.mock.calls[0] as unknown as [string, object])[1]).toBe(false);
   });
 });
+
+describe('CompraFormComponent agregar y quitar renglones', () => {
+  const boton = (el: HTMLElement, etiqueta: string) => el.querySelector<HTMLButtonElement>(`button[aria-label="${etiqueta}"]`)!;
+
+  it('Quitar está deshabilitado con consumo y explica por qué', async () => {
+    const { el } = await montarItems(vi.fn());
+    expect(boton(el, 'Quitar Kaiak Clásico').getAttribute('aria-disabled')).toBe('true');
+    const desc = boton(el, 'Quitar Kaiak Clásico').getAttribute('aria-describedby')!;
+    expect(el.querySelector('#' + desc)!.textContent).toContain('Podés bajar la cantidad hasta 3');
+    expect(el.textContent).toContain('ya salieron 3 de 4');
+    expect(boton(el, 'Quitar Ekos Jabón').getAttribute('aria-disabled')).toBeNull();
+  });
+
+  it('quitar marca "Se quitará", resume el efecto, no manda el renglón y deshacer lo revierte', async () => {
+    const editar = vi.fn(() => errorApi(500, 'x'));
+    const { fixture, el, guardar } = await montarItems(editar);
+    boton(el, 'Quitar Ekos Jabón').click();
+    fixture.detectChanges();
+    expect(el.textContent).toContain('Se quitará');
+    expect(el.textContent).toContain('Se quita Ekos Jabón (−10 del stock)');
+    boton(el, 'Deshacer quitar Ekos Jabón').click();
+    fixture.detectChanges();
+    expect(el.textContent).not.toContain('Se quitará');
+    expect(el.textContent).not.toContain('Se quita Ekos');
+    boton(el, 'Quitar Ekos Jabón').click();
+    fixture.detectChanges();
+    guardar().click();
+    await fixture.whenStable();
+    const cuerpo = (editar.mock.calls[0] as unknown as [string, { items: { id?: string }[] }])[1];
+    expect(cuerpo.items.map((i) => i.id)).toEqual(['i1']);
+  });
+
+  it('no permite quitar el último renglón activo', async () => {
+    const un = { ...compraItems, items: [{ ...compraItems.items[1] }] } as CompraDetalle;
+    TestBed.configureTestingModule({ providers: [{ provide: ComprasApi, useValue: { editar: vi.fn(), obtener: vi.fn() } }] });
+    const fixture = TestBed.createComponent(CompraFormComponent);
+    fixture.componentRef.setInput('compra', un);
+    fixture.detectChanges();
+    await fixture.whenStable();
+    fixture.detectChanges();
+    const el = fixture.nativeElement as HTMLElement;
+    expect(boton(el, 'Quitar Ekos Jabón').getAttribute('aria-disabled')).toBe('true');
+    expect(el.textContent).toContain('La compra necesita al menos un producto');
+  });
+
+  it('409 con items[i] y quitados[id] se pinta en el renglón correcto aunque haya quitados', async () => {
+    const editar = vi.fn(() => errorApi(409, 'compra_consumida', { 'items[0].cantidad': 'MSG-ITEM', 'quitados[i2]': 'MSG-QUITADO' }));
+    const obtener = vi.fn(() => of({ ...compraItems, items: compraItems.items.map((i) => (i.id === 'i2' ? { ...i, consumido: 1 } : i)) }));
+    const { fixture, el, guardar } = await montarItems(editar, obtener);
+    boton(el, 'Quitar Ekos Jabón').click();
+    fixture.detectChanges();
+    guardar().click();
+    await fixture.whenStable();
+    fixture.detectChanges();
+    const filas = el.querySelectorAll('ul[aria-label="Renglones de la compra"] > li');
+    expect(filas[0].textContent).toContain('MSG-ITEM');
+    expect(filas[1].textContent).toContain('MSG-QUITADO');
+    expect(filas[1].textContent).not.toContain('Se quitará');
+  });
+
+  it('un aria-disabled sigue enfocable y no quita; quitar/deshacer conserva el foco en el mismo botón', async () => {
+    const { fixture, el } = await montarItems(vi.fn());
+    const bloqueado = boton(el, 'Quitar Kaiak Clásico');
+    bloqueado.focus();
+    bloqueado.click();
+    fixture.detectChanges();
+    expect(document.activeElement).toBe(bloqueado);
+    expect(el.textContent).not.toContain('Se quitará');
+    const b = boton(el, 'Quitar Ekos Jabón');
+    b.focus();
+    b.click();
+    fixture.detectChanges();
+    const mismo = boton(el, 'Deshacer quitar Ekos Jabón');
+    expect(mismo).toBe(b);
+    expect(document.activeElement).toBe(b);
+    mismo.click();
+    fixture.detectChanges();
+    expect(boton(el, 'Quitar Ekos Jabón')).toBe(b);
+    expect(document.activeElement).toBe(b);
+  });
+
+  it('muestra errores items[i].id e items[i].productoId del servidor en el renglón', async () => {
+    const editar = vi.fn(() => errorApi(422, 'datos_invalidos', { 'items[0].id': 'MSG-ID', 'items[1].productoId': 'MSG-PROD' }));
+    const { fixture, el, poner, guardar } = await montarItems(editar);
+    poner('#e-cant-i2', '11');
+    guardar().click();
+    await fixture.whenStable();
+    fixture.detectChanges();
+    const filas = el.querySelectorAll('ul[aria-label="Renglones de la compra"] > li');
+    expect(filas[0].textContent).toContain('MSG-ID');
+    expect(filas[1].textContent).toContain('MSG-PROD');
+  });
+});

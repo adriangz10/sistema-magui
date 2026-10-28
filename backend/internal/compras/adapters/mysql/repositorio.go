@@ -28,24 +28,56 @@ func (r Repositorio) Guardar(ctx context.Context, c domain.Compra) error {
 		c.ID, c.Fecha, c.EmpresaID, c.Total.String(), c.Notas, c.CreatedAt, 1, c.CreatedAt); err != nil {
 		return err
 	}
-	args := make([]any, 0, 7*len(c.Items))
-	for _, it := range c.Items {
+	return insertarItems(ctx, conn, c.ID, c.Items)
+}
+
+// AgregarItems inserta renglones nuevos en una compra existente (US-001c).
+func (r Repositorio) AgregarItems(ctx context.Context, compraID string, items []domain.Item) error {
+	return insertarItems(ctx, db.Conn(ctx, r.DB), compraID, items)
+}
+
+// QuitarItems da de baja lógica los renglones (ADR 0004). Exige que todos sigan vigentes.
+func (r Repositorio) QuitarItems(ctx context.Context, ids []string, ahora time.Time) error {
+	if len(ids) == 0 {
+		return nil
+	}
+	args := []any{ahora}
+	for _, id := range ids {
+		args = append(args, id)
+	}
+	res, err := db.Conn(ctx, r.DB).ExecContext(ctx,
+		`UPDATE compra_item SET quitado_en = ? WHERE quitado_en IS NULL AND id IN (`+
+			strings.TrimSuffix(strings.Repeat("?, ", len(ids)), ", ")+`)`, args...)
+	if err != nil {
+		return err
+	}
+	if n, err := res.RowsAffected(); err != nil {
+		return err
+	} else if int(n) != len(ids) {
+		return fmt.Errorf("quitar renglones: se esperaban %d filas vigentes y fueron %d", len(ids), n)
+	}
+	return nil
+}
+
+func insertarItems(ctx context.Context, conn db.Ejecutor, compraID string, items []domain.Item) error {
+	args := make([]any, 0, 7*len(items))
+	for _, it := range items {
 		var precio any
 		if it.PrecioVentaNuevo != nil {
 			precio = it.PrecioVentaNuevo.String()
 		}
-		args = append(args, it.ID, c.ID, it.ProductoID, it.Cantidad, it.CostoUnitario.String(), precio, it.Vencimiento)
+		args = append(args, it.ID, compraID, it.ProductoID, it.Cantidad, it.CostoUnitario.String(), precio, it.Vencimiento)
 	}
 	q := `INSERT INTO compra_item (id, compra_id, producto_id, cantidad, costo_unitario, precio_venta_nuevo, fecha_vencimiento) VALUES ` +
-		strings.TrimSuffix(strings.Repeat("(?, ?, ?, ?, ?, ?, ?), ", len(c.Items)), ", ")
+		strings.TrimSuffix(strings.Repeat("(?, ?, ?, ?, ?, ?, ?), ", len(items)), ", ")
 	_, err := conn.ExecContext(ctx, q, args...)
 	return err
 }
 
 const consultaResumen = `
 	SELECT c.id, c.fecha, c.empresa_id, e.nombre, c.total, c.notas, c.version, c.updated_at,
-	       (SELECT COUNT(*) FROM compra_item ci WHERE ci.compra_id = c.id),
-	       (SELECT COALESCE(SUM(ci.cantidad), 0) FROM compra_item ci WHERE ci.compra_id = c.id)
+	       (SELECT COUNT(*) FROM compra_item ci WHERE ci.compra_id = c.id AND ci.quitado_en IS NULL),
+	       (SELECT COALESCE(SUM(ci.cantidad), 0) FROM compra_item ci WHERE ci.compra_id = c.id AND ci.quitado_en IS NULL)
 	FROM compra c LEFT JOIN empresa e ON e.id = c.empresa_id`
 
 func scanResumen(s interface{ Scan(...any) error }) (application.CompraResumen, error) {
@@ -71,7 +103,7 @@ func (r Repositorio) Obtener(ctx context.Context, id string) (application.Compra
 	rows, err := conn.QueryContext(ctx, `
 		SELECT ci.id, ci.producto_id, p.sku, p.nombre, ci.cantidad, ci.costo_unitario, ci.precio_venta_nuevo, ci.fecha_vencimiento
 		FROM compra_item ci JOIN producto p ON p.id = ci.producto_id
-		WHERE ci.compra_id = ? ORDER BY ci.id`, id)
+		WHERE ci.compra_id = ? AND ci.quitado_en IS NULL ORDER BY ci.id`, id)
 	if err != nil {
 		return application.CompraDetalle{}, err
 	}
@@ -115,7 +147,7 @@ func (r Repositorio) ObtenerParaEditar(ctx context.Context, id string) (domain.C
 	c.Total = total
 	rows, err := conn.QueryContext(ctx, `
 		SELECT id, producto_id, cantidad, costo_unitario, precio_venta_nuevo, fecha_vencimiento
-		FROM compra_item WHERE compra_id = ? ORDER BY id`, id)
+		FROM compra_item WHERE compra_id = ? AND quitado_en IS NULL ORDER BY id`, id)
 	if err != nil {
 		return domain.Compra{}, err
 	}
@@ -177,7 +209,7 @@ func (r Repositorio) ActualizarItems(ctx context.Context, items []domain.Item) e
 			venc = *it.Vencimiento
 		}
 		if _, err := conn.ExecContext(ctx,
-			`UPDATE compra_item SET cantidad = ?, costo_unitario = ?, precio_venta_nuevo = ?, fecha_vencimiento = ? WHERE id = ?`,
+			`UPDATE compra_item SET cantidad = ?, costo_unitario = ?, precio_venta_nuevo = ?, fecha_vencimiento = ? WHERE id = ? AND quitado_en IS NULL`,
 			it.Cantidad, it.CostoUnitario.String(), precio, venc, it.ID); err != nil {
 			return err
 		}
@@ -194,7 +226,7 @@ func (r Repositorio) CompraMasReciente(ctx context.Context, productoID string) (
 	err := db.Conn(ctx, r.DB).QueryRowContext(ctx, `
 		SELECT c.id, ci.costo_unitario
 		FROM compra_item ci JOIN compra c ON c.id = ci.compra_id
-		WHERE ci.producto_id = ?
+		WHERE ci.producto_id = ? AND ci.quitado_en IS NULL
 		ORDER BY DATE(DATE_SUB(c.fecha, INTERVAL 3 HOUR)) DESC, c.created_at DESC, c.id DESC, ci.id DESC LIMIT 1`, productoID).Scan(&rec.CompraID, &rec.Costo)
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil, nil

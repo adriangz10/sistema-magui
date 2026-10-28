@@ -354,15 +354,6 @@ func TestEditarRenglonErrores(t *testing.T) {
 	if ee, _ := errores.Como(err); ee == nil || ee.Campos["items[0].id"] == "" {
 		t.Errorf("id ajeno: %v", err)
 	}
-	// nuevo y quitar (llegan con US-001c)
-	nuevo := append(*e.items(nil), ItemEdicionCmd{ProductoID: "kaiak", Cantidad: 1})
-	if _, err := e.s.EditarCompra(ctx, ComandoEditarCompra{ID: e.id, Version: 1, Fecha: FechaEditada{Instante: &ahora}, Items: &nuevo}); !errors.Is(err, domain.ErrRenglonesNuevosNoDisponibles) {
-		t.Errorf("nuevo: %v", err)
-	}
-	solo := (*e.items(nil))[:1]
-	if _, err := e.s.EditarCompra(ctx, ComandoEditarCompra{ID: e.id, Version: 1, Fecha: FechaEditada{Instante: &ahora}, Items: &solo}); !errors.Is(err, domain.ErrQuitarRenglonesNoDisponible) {
-		t.Errorf("quitar: %v", err)
-	}
 	// versión vieja con items
 	e.version = 9
 	if _, err := e.editar(func(k, _ *ItemEdicionCmd) { k.Cantidad = 5 }); !errors.Is(err, domain.ErrVersionDesactualizada) {

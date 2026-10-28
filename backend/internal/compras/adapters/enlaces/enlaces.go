@@ -56,7 +56,7 @@ func (i Inventario) Ingresar(ctx context.Context, in application.IngresoCompra) 
 	costo := in.Costo
 	_, err := i.Svc.RegistrarIngreso(ctx, inventario.Ingreso{
 		ProductoID: in.ProductoID, Cantidad: in.Cantidad, Costo: &costo, Vencimiento: in.Vencimiento,
-		CompraItemID: &in.CompraItemID, Tipo: invdomain.MovCompra, ReferenciaID: &in.CompraID,
+		CompraItemID: &in.CompraItemID, Tipo: invdomain.MovCompra, ReferenciaID: &in.CompraID, Nota: in.Nota,
 	})
 	return err
 }
@@ -78,5 +78,5 @@ func (i Inventario) LotesDeRenglones(ctx context.Context, itemIDs []string, bloq
 
 func (i Inventario) AjustarLoteDeRenglon(ctx context.Context, a application.AjusteRenglon) error {
 	return i.Svc.AjustarLoteDeCompra(ctx, inventario.AjusteLoteCompra{LoteID: a.LoteID, Diferencia: a.Diferencia,
-		Costo: a.Costo, Vencimiento: a.Vencimiento, CompraID: a.CompraID, Nota: a.Nota})
+		Costo: a.Costo, Vencimiento: a.Vencimiento, CompraID: a.CompraID, Nota: a.Nota, SoloCantidad: a.SoloCantidad})
 }

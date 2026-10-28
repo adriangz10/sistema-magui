@@ -3,7 +3,7 @@ package domain
 import (
 	"encoding/json"
 	"fmt"
-	"slices"
+	"sort"
 	"strings"
 	"time"
 	"unicode/utf8"
@@ -34,13 +34,16 @@ type CambiosCabecera struct {
 	// Renglones es la lista completa de renglones pedida (US-001b); nil = los renglones no cambian.
 	// Un Vencimiento nil significa "sin vencimiento" (no "sin cambio").
 	Renglones *[]RenglonEdicion
-	// NombresProductos (id -> nombre) los completa el caso de uso para el documento de cambios.
+	// NombresProductos (id -> nombre) los completa el caso de uso para el documento de cambios
+	// (productos de los renglones existentes y de los nuevos).
 	NombresProductos map[string]string
+	// NuevoID genera el id de cada renglón nuevo (US-001c). Si es nil, los renglones nuevos quedan sin id.
+	NuevoID func() string
 }
 
 // RenglonEdicion es un renglón del pedido de edición.
 type RenglonEdicion struct {
-	ID               string // "" = renglón nuevo (US-001c, todavía no disponible)
+	ID               string // "" = renglón nuevo (US-001c)
 	ProductoID       string
 	Cantidad         int
 	CostoUnitario    dinero.Dinero
@@ -58,6 +61,20 @@ type RenglonModificado struct {
 	CambioCosto  bool
 	CambioVenc   bool
 	CambioPrecio bool
+}
+
+// RenglonAgregado es un renglón nuevo de la compra: crea un lote nuevo con un movimiento COMPRA.
+type RenglonAgregado struct {
+	Indice   int  // posición en el `items` enviado
+	Item     Item // con el id nuevo
+	Producto string
+}
+
+// RenglonQuitado es un renglón existente que no vino en la lista: se da de baja (quitado_en) y su
+// lote recibe un EDICION_COMPRA negativo por la cantidad que trajo el renglón.
+type RenglonQuitado struct {
+	Item     Item
+	Producto string
 }
 
 // LoteRenglon es el lote de un renglón con su stock actual (lectura bloqueante).
@@ -142,6 +159,44 @@ type PlanEdicion struct {
 	Cambios    Cambios
 	// Modificados son los renglones existentes que cambiaron, en el orden de la compra.
 	Modificados []RenglonModificado
+	// Agregados son los renglones nuevos, en el orden del pedido (US-001c).
+	Agregados []RenglonAgregado
+	// Quitados son los renglones existentes omitidos del pedido, en el orden de la compra (US-001c).
+	Quitados []RenglonQuitado
+}
+
+// ProductosAfectados devuelve, sin repetir y en orden de aparición, los productos de los renglones
+// modificados en costo o precio, agregados o quitados. Con cambioFecha (RN-C-04) suma además todos
+// los productos de la compra antes y después de la edición.
+func (p PlanEdicion) ProductosAfectados(antes []Item, cambioFecha bool) []string {
+	var out []string
+	vistos := map[string]bool{}
+	sumar := func(id string) {
+		if !vistos[id] {
+			vistos[id] = true
+			out = append(out, id)
+		}
+	}
+	if cambioFecha {
+		for _, it := range antes {
+			sumar(it.ProductoID)
+		}
+		for _, it := range p.Compra.Items {
+			sumar(it.ProductoID)
+		}
+	}
+	for _, m := range p.Modificados {
+		if m.CambioCosto || m.CambioPrecio {
+			sumar(m.Item.ProductoID)
+		}
+	}
+	for _, a := range p.Agregados {
+		sumar(a.Item.ProductoID)
+	}
+	for _, q := range p.Quitados {
+		sumar(q.Item.ProductoID)
+	}
+	return out
 }
 
 // ValidarEdicion revisa lo que no necesita la base: versión, fecha, notas, motivo y origen.
@@ -173,13 +228,12 @@ func ValidarEdicion(c CambiosCabecera, ahora time.Time) error {
 	return nil
 }
 
-// validarRenglones revisa lo que se puede saber sin la compra: valores de cada renglón, ids
-// repetidos y renglones nuevos (todavía no disponibles).
+// validarRenglones revisa lo que se puede saber sin la compra: valores de cada renglón (1 a 300
+// renglones, RN-C-01) e ids repetidos. Un renglón sin id es nuevo.
 func validarRenglones(rs []RenglonEdicion) error {
 	var v errores.Validacion
 	items := make([]Item, len(rs))
 	vistos := map[string]bool{}
-	nuevos := false
 	for i := range rs {
 		// "vencimiento": "" llega como fecha cero: es "sin vencimiento" (se normaliza en el pedido
 		// mismo para que no cuente como un cambio falso al compararlo con el lote).
@@ -189,21 +243,15 @@ func validarRenglones(rs []RenglonEdicion) error {
 		r := rs[i]
 		items[i] = Item{ID: r.ID, ProductoID: r.ProductoID, Cantidad: r.Cantidad, CostoUnitario: r.CostoUnitario,
 			PrecioVentaNuevo: r.PrecioVentaNuevo, Vencimiento: r.Vencimiento}
-		if strings.TrimSpace(r.ID) == "" {
-			nuevos = true
-		} else if vistos[r.ID] {
-			v.Agregar(fmt.Sprintf("items[%d].id", i), "El renglón está repetido")
+		if strings.TrimSpace(r.ID) != "" {
+			if vistos[r.ID] {
+				v.Agregar(fmt.Sprintf("items[%d].id", i), "El renglón está repetido")
+			}
+			vistos[r.ID] = true
 		}
-		vistos[r.ID] = true
 	}
 	validarItems(&v, items)
-	if err := v.Err(); err != nil {
-		return err
-	}
-	if nuevos {
-		return ErrRenglonesNuevosNoDisponibles
-	}
-	return nil
+	return v.Err()
 }
 
 // PlanificarEdicion calcula la compra resultante y el documento de cambios. Es pura: no toca
@@ -247,12 +295,14 @@ func PlanificarEdicion(actual Compra, c CambiosCabecera, ahora time.Time) (PlanE
 	}
 
 	var mods []RenglonModificado
+	var agregados []RenglonAgregado
+	var quitados []RenglonQuitado
 	if c.Renglones != nil {
 		var err error
-		if mods, err = planificarRenglones(actual, *c.Renglones, c.NombresProductos); err != nil {
+		if mods, agregados, quitados, err = planificarRenglones(actual, *c.Renglones, c.NombresProductos, c.NuevoID); err != nil {
 			return PlanEdicion{}, err
 		}
-		nueva.Items = aplicarModificados(actual.Items, mods)
+		nueva.Items = aplicarCambios(actual.Items, mods, agregados, quitados)
 		nueva.Total = dinero.Cero
 		for _, it := range nueva.Items {
 			nueva.Total = nueva.Total.Sumar(it.Subtotal())
@@ -277,24 +327,33 @@ func PlanificarEdicion(actual Compra, c CambiosCabecera, ahora time.Time) (PlanE
 		cab = append(cab, CambioCampo{Campo: "notas", Antes: valorPtr(actual.Notas), Despues: valorPtr(nueva.Notas)})
 	}
 
-	if len(cab) == 0 && len(mods) == 0 {
+	if len(cab) == 0 && len(mods) == 0 && len(agregados) == 0 && len(quitados) == 0 {
 		return PlanEdicion{SinCambios: true, Compra: actual, Origen: origen, Motivo: motivo}, nil
 	}
-	rengs := make([]CambioRenglon, len(mods))
-	for i, m := range mods {
-		rengs[i] = cambioDeRenglon(m)
+	rengs := make([]CambioRenglon, 0, len(mods)+len(agregados)+len(quitados))
+	for _, m := range mods {
+		rengs = append(rengs, cambioDeRenglon(m))
 	}
+	for _, a := range agregados {
+		rengs = append(rengs, cambioDeAgregado(a))
+	}
+	for _, q := range quitados {
+		rengs = append(rengs, cambioDeQuitado(q))
+	}
+	// Orden del documento: por id de renglón (ADR 0005).
+	sort.SliceStable(rengs, func(i, j int) bool { return rengs[i].ItemID < rengs[j].ItemID })
 	nueva.Version = actual.Version + 1
 	nueva.UpdatedAt = ahora
 	return PlanEdicion{
-		Compra: nueva, Origen: origen, Motivo: motivo, Modificados: mods,
+		Compra: nueva, Origen: origen, Motivo: motivo, Modificados: mods, Agregados: agregados, Quitados: quitados,
 		Cambios: Cambios{V: VersionDocumento, Cabecera: cab, Renglones: rengs},
 	}, nil
 }
 
-// planificarRenglones compara los renglones pedidos con los de la compra. La lista pedida debe
-// traer todos los renglones existentes (quitar llega con US-001c) y ninguno nuevo.
-func planificarRenglones(actual Compra, pedidos []RenglonEdicion, nombres map[string]string) ([]RenglonModificado, error) {
+// planificarRenglones compara los renglones pedidos con los vigentes de la compra: id existente =
+// renglón existente (modificado o igual); sin id = nuevo; los existentes que no vienen = quitados.
+func planificarRenglones(actual Compra, pedidos []RenglonEdicion, nombres map[string]string, nuevoID func() string) (
+	mods []RenglonModificado, agregados []RenglonAgregado, quitados []RenglonQuitado, err error) {
 	var v errores.Validacion
 	porID := map[string]Item{}
 	for _, it := range actual.Items {
@@ -302,6 +361,9 @@ func planificarRenglones(actual Compra, pedidos []RenglonEdicion, nombres map[st
 	}
 	pedido := map[string]int{}
 	for i, r := range pedidos {
+		if strings.TrimSpace(r.ID) == "" {
+			continue
+		}
 		ant, ok := porID[r.ID]
 		if !ok {
 			v.Agregar(fmt.Sprintf("items[%d].id", i), "El renglón no pertenece a esta compra")
@@ -312,14 +374,14 @@ func planificarRenglones(actual Compra, pedidos []RenglonEdicion, nombres map[st
 			"No se puede cambiar el producto de un renglón: quitalo y agregá otro")
 	}
 	if err := v.Err(); err != nil {
-		return nil, err
+		return nil, nil, nil, err
 	}
-	if len(pedido) < len(actual.Items) {
-		return nil, ErrQuitarRenglonesNoDisponible
-	}
-	var mods []RenglonModificado
 	for _, ant := range actual.Items { // orden de la compra
-		i := pedido[ant.ID]
+		i, viene := pedido[ant.ID]
+		if !viene {
+			quitados = append(quitados, RenglonQuitado{Item: ant, Producto: nombres[ant.ProductoID]})
+			continue
+		}
 		r := pedidos[i]
 		nuevo := Item{ID: ant.ID, ProductoID: ant.ProductoID, Cantidad: r.Cantidad, CostoUnitario: r.CostoUnitario,
 			PrecioVentaNuevo: r.PrecioVentaNuevo, Vencimiento: r.Vencimiento}
@@ -332,19 +394,64 @@ func planificarRenglones(actual Compra, pedidos []RenglonEdicion, nombres map[st
 			mods = append(mods, m)
 		}
 	}
-	return mods, nil
+	for i, r := range pedidos { // orden del pedido
+		if strings.TrimSpace(r.ID) != "" {
+			continue
+		}
+		it := Item{ProductoID: r.ProductoID, Cantidad: r.Cantidad, CostoUnitario: r.CostoUnitario,
+			PrecioVentaNuevo: r.PrecioVentaNuevo, Vencimiento: r.Vencimiento}
+		if nuevoID != nil {
+			it.ID = nuevoID()
+		}
+		agregados = append(agregados, RenglonAgregado{Indice: i, Item: it, Producto: nombres[r.ProductoID]})
+	}
+	return mods, agregados, quitados, nil
 }
 
-func aplicarModificados(items []Item, mods []RenglonModificado) []Item {
-	out := slices.Clone(items)
-	for _, m := range mods {
-		for i := range out {
-			if out[i].ID == m.Item.ID {
-				out[i] = m.Item
+// aplicarCambios arma los renglones resultantes: los existentes que siguen (con sus valores nuevos)
+// en el orden de la compra y después los agregados.
+func aplicarCambios(items []Item, mods []RenglonModificado, agregados []RenglonAgregado, quitados []RenglonQuitado) []Item {
+	baja := map[string]bool{}
+	for _, q := range quitados {
+		baja[q.Item.ID] = true
+	}
+	out := make([]Item, 0, len(items)+len(agregados))
+	for _, it := range items {
+		if baja[it.ID] {
+			continue
+		}
+		for _, m := range mods {
+			if m.Item.ID == it.ID {
+				it = m.Item
 			}
 		}
+		out = append(out, it)
+	}
+	for _, a := range agregados {
+		out = append(out, a.Item)
 	}
 	return out
+}
+
+func cambioDeAgregado(a RenglonAgregado) CambioRenglon {
+	cs := []CambioCampo{
+		{Campo: "cantidad", Antes: nil, Despues: a.Item.Cantidad},
+		{Campo: "costoUnitario", Antes: nil, Despues: a.Item.CostoUnitario.String()},
+	}
+	if a.Item.PrecioVentaNuevo != nil {
+		cs = append(cs, CambioCampo{Campo: "precioVentaNuevo", Antes: nil, Despues: a.Item.PrecioVentaNuevo.String()})
+	}
+	if a.Item.Vencimiento != nil {
+		cs = append(cs, CambioCampo{Campo: "vencimiento", Antes: nil, Despues: a.Item.Vencimiento.String()})
+	}
+	return CambioRenglon{Accion: "AGREGADO", ItemID: a.Item.ID, ProductoID: a.Item.ProductoID, Producto: a.Producto, Cambios: cs}
+}
+
+func cambioDeQuitado(q RenglonQuitado) CambioRenglon {
+	return CambioRenglon{Accion: "QUITADO", ItemID: q.Item.ID, ProductoID: q.Item.ProductoID, Producto: q.Producto, Cambios: []CambioCampo{
+		{Campo: "cantidad", Antes: q.Item.Cantidad, Despues: nil},
+		{Campo: "costoUnitario", Antes: q.Item.CostoUnitario.String(), Despues: nil},
+	}}
 }
 
 func cambioDeRenglon(m RenglonModificado) CambioRenglon {
@@ -385,12 +492,37 @@ func VerificarConsumo(plan PlanEdicion, lotes map[string]LoteRenglon) error {
 			"%s: de %s de esta compra ya %s %d (ventas o ajustes). Solo podés bajar hasta %s.",
 			m.Producto, unidades(m.Anterior.Cantidad), salieron(consumido), consumido, unidadesMin(consumido))
 	}
+	for _, q := range plan.Quitados {
+		l, ok := lotes[q.Item.ID]
+		if !ok {
+			return ErrRenglonSinLote(q.Producto)
+		}
+		// Se descuenta solo lo que trajo el renglón (P-A2): si ya salió algo, no se puede quitar.
+		consumido := q.Item.Cantidad - l.Stock
+		if consumido <= 0 {
+			continue
+		}
+		campos["quitados["+q.Item.ID+"]"] = mensajeQuitar(q.Producto, q.Item.Cantidad, consumido)
+	}
 	if len(campos) == 0 {
 		return nil
 	}
 	e := ErrCompraConsumida
 	e.Campos = campos
 	return &e
+}
+
+// mensajeQuitar: "Ekos Jabón: ya salió 1 de las 10 unidades; no se puede quitar. Podés bajar la cantidad hasta 1."
+func mensajeQuitar(producto string, cantidad, consumido int) string {
+	if cantidad == 1 {
+		return fmt.Sprintf("%s: ya salió la única unidad; no se puede quitar.", producto)
+	}
+	consumido = min(consumido, cantidad)
+	base := fmt.Sprintf("%s: ya %s %d de las %d unidades; no se puede quitar.", producto, salieron(consumido), consumido, cantidad)
+	if consumido >= cantidad {
+		return base
+	}
+	return fmt.Sprintf("%s Podés bajar la cantidad hasta %d.", base, consumido)
 }
 
 func unidades(n int) string {

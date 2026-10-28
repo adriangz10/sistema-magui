@@ -73,6 +73,8 @@ docker compose -f deploy/docker-compose.prod.yml --env-file deploy/.env.prod up 
 Las migraciones nuevas se aplican solas al arrancar la API. Los datos quedan en los volúmenes de Docker
 (`mysql_data`, y `caddy_data` para los certificados): **nunca usar `down -v`**, borra la base.
 
+**Bajar la migración 00006 (renglones quitados al editar compras):** el Down elimina la columna `compra_item.quitado_en`, así que los renglones quitados "reviven" en el detalle y el listado de la compra, sin ajustar el stock (su lote ya quedó descontado) ni el total guardado. Antes de bajarla, verificá `SELECT COUNT(*) FROM compra_item WHERE quitado_en IS NOT NULL` = 0; si hay quitados, restaurá desde backup en lugar de bajar. Ante un problema, preferí volver el código atrás y dejar las migraciones aplicadas (ver `docs/data/editar-compra.md`, sección Rollback).
+
 ## Copias de seguridad
 
 El servicio `backup` hace una copia de la base **todos los días a las 03:00** (hora de Argentina, se cambia con

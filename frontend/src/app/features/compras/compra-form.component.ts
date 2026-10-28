@@ -13,8 +13,8 @@ import { BuscadorProductoComponent } from '../../shared/ui/buscador-producto.com
 import { CampoComponent } from '../../shared/ui/campo.component';
 import { InputDineroComponent } from '../../shared/ui/input-dinero.component';
 import {
-  armarEdicion, armarItems, cabeceraDe, hayCambios, hayCambiosRenglones, minimoCantidad, RenglonEditable, renglonesDe,
-  resumenEfectos, seAplicoEdicion, totalRenglones, validarRenglones,
+  armarEdicion, armarItems, cabeceraDe, hayCambios, hayCambiosRenglones, mapearErroresServidor, minimoCantidad, motivoNoQuitar,
+  RenglonEditable, renglonesDe, renglonNuevo, resumenEfectos, seAplicoEdicion, totalRenglones, validarRenglones,
 } from './edicion-compra';
 
 interface Renglon {
@@ -67,13 +67,45 @@ interface Renglon {
           <div class="aviso-warn" role="alert">Otra operación se cruzó, intentá de nuevo.</div>
         }
 
+        <app-buscador-producto idCampo="compra-buscar-ed" etiqueta="Agregar producto a la compra" [compacto]="true" tipo="SIMPLE"
+                               placeholder="Escaneá o buscá un producto para agregarlo" (elegido)="agregarEd($event)" />
+
         <ul class="space-y-3" aria-label="Renglones de la compra">
           @for (r of renglonesEd(); track r.id; let i = $index) {
-            <li class="rounded-xl border border-ink-200 p-4 dark:border-ink-700">
-              <div class="mb-3">
-                <p class="font-medium">{{ r.producto }}</p>
-                <p class="text-xs text-muted">{{ r.sku }} · ya salieron {{ r.consumido }} de {{ r.cantidadOriginal }}</p>
+            <li class="rounded-xl border border-ink-200 p-4 dark:border-ink-700" [class.border-dashed]="r.quitado">
+              <div class="mb-3 flex items-start justify-between gap-3">
+                <div class="min-w-0">
+                  <p class="font-medium" [class.line-through]="r.quitado">{{ r.producto }}
+                    @if (r.nuevo) { <span class="badge-ok">Nuevo</span> }
+                    @if (r.quitado) { <span class="badge-danger">Se quitará</span> }
+                  </p>
+                  @if (r.nuevo) {
+                    <p class="text-xs text-muted">{{ r.sku }}@if (r.precioActual) { · precio actual {{ r.precioActual | dinero }} }</p>
+                  } @else {
+                    <p class="text-xs text-muted">{{ r.sku }} · ya salieron {{ r.consumido }} de {{ r.cantidadOriginal }}</p>
+                  }
+                </div>
+                <button type="button" [class]="r.quitado ? 'btn-secundario' : 'btn-fantasma btn-icono -mt-1 -mr-2 text-muted hover:text-danger'"
+                        (click)="alternarQuitar(r)" [attr.aria-label]="(r.quitado ? 'Deshacer quitar ' : 'Quitar ') + r.producto"
+                        [attr.aria-disabled]="!r.quitado && motivoNoQuitar(r) ? 'true' : null"
+                        [attr.aria-describedby]="!r.quitado && motivoNoQuitar(r) ? 'e-motivo-' + r.id : null">
+                  @if (r.quitado) { Deshacer } @else { <lucide-icon [img]="iconoQuitar" [size]="18" aria-hidden="true" /> }
+                </button>
               </div>
+              @if (!r.quitado && motivoNoQuitar(r); as motivoQ) {
+                <p class="mb-3 text-xs text-muted" [id]="'e-motivo-' + r.id">{{ motivoQ }}</p>
+              }
+              @if (errores()['quitados[' + r.id + ']']; as errQ) {
+                <p class="mb-3 text-sm text-danger" role="alert">{{ errQ }}</p>
+              }
+              @for (campo of ['id', 'productoId']; track campo) {
+                @if (errorRenglon(i, campo); as errC) {
+                  <p class="mb-3 text-sm text-danger" role="alert">{{ errC }}</p>
+                }
+              }
+              @if (r.quitado) {
+                <p class="text-sm text-muted">Se quitarán {{ r.cantidadOriginal }} unidades del stock al guardar.</p>
+              } @else {
               <div class="grid gap-3 sm:grid-cols-4">
                 <app-campo etiqueta="Cantidad" [para]="'e-cant-' + r.id" [error]="errorRenglon(i, 'cantidad')">
                   <input [id]="'e-cant-' + r.id" type="number" [min]="minimo(r)" inputmode="numeric" class="input" [(ngModel)]="r.cantidad" (ngModelChange)="refrescar()" />
@@ -89,6 +121,7 @@ interface Renglon {
                 </app-campo>
               </div>
               <p class="mt-2 text-right text-sm text-muted">Subtotal <strong class="text-ink-900 tabular-nums dark:text-ink-100">{{ subtotal(r) | dinero }}</strong></p>
+              }
             </li>
           }
         </ul>
@@ -244,6 +277,43 @@ export class CompraFormComponent {
     this.version.update((v) => v + 1);
   }
 
+  /** Edición: agrega un renglón nuevo al final (se envía sin `id`). */
+  protected agregarEd(p: ProductoResumen): void {
+    this.renglonesEd.update((rs) => [...rs, renglonNuevo(this.siguienteClave++, p)]);
+  }
+
+  protected motivoNoQuitar(r: RenglonEditable): string | null {
+    return motivoNoQuitar(r, this.renglonesEd());
+  }
+
+  /** Un renglón existente queda marcado "se quitará" (se puede deshacer); uno nuevo se descarta sin rastro. */
+  protected quitarEd(r: RenglonEditable): void {
+    if (this.motivoNoQuitar(r)) {
+      return;
+    }
+    if (r.nuevo) {
+      this.renglonesEd.update((rs) => rs.filter((x) => x.id !== r.id));
+      // Las posiciones se corrieron: los errores por posición ya no valen.
+      this.errores.update((e) => Object.fromEntries(Object.entries(e).filter(([k]) => !k.startsWith('items['))));
+    } else {
+      this.renglonesEd.update((rs) => rs.map((x) => (x.id === r.id ? { ...x, quitado: true } : x)));
+    }
+  }
+
+  /** Un único botón: quita o deshace (así el foco no se pierde al alternar). */
+  protected alternarQuitar(r: RenglonEditable): void {
+    if (r.quitado) {
+      this.deshacerQuitar(r);
+    } else {
+      this.quitarEd(r);
+    }
+  }
+
+  protected deshacerQuitar(r: RenglonEditable): void {
+    this.renglonesEd.update((rs) => rs.map((x) => (x.id === r.id ? { ...x, quitado: false } : x)));
+    this.errores.update(({ [`quitados[${r.id}]`]: _, ...resto }) => resto);
+  }
+
   protected minimo(r: RenglonEditable): number {
     return minimoCantidad(r.consumido);
   }
@@ -298,7 +368,7 @@ export class CompraFormComponent {
       if (err.codigo === 'version_desactualizada') {
         this.desactualizada.set(true);
       } else if (err.codigo === 'compra_consumida') {
-        this.errores.set({ ...err.campos });
+        this.errores.set(mapearErroresServidor(this.renglonesEd(), err.campos));
         await this.refrescarConsumido(original.id);
       } else if (err.codigo === 'operacion_concurrente') {
         this.concurrente.set(true);
@@ -307,8 +377,12 @@ export class CompraFormComponent {
         this.cancelado.emit();
       } else if (err.codigo === 'empresa_no_encontrada') {
         this.errores.set({ empresaId: 'La empresa elegida ya no existe' });
+      } else if (err.codigo === 'producto_no_comprable') {
+        this.errores.set({ items: 'Un producto agregado es un combo: no se puede comprar, comprá sus productos' });
+      } else if (err.codigo === 'producto_no_encontrado') {
+        this.errores.set({ items: 'Un producto agregado ya no existe, quitalo e intentá de nuevo' });
       } else if (err.status === 422 && Object.keys(err.campos).length) {
-        this.errores.set({ ...err.campos });
+        this.errores.set(mapearErroresServidor(this.renglonesEd(), err.campos));
       } else {
         this.toast.error(err);
       }
@@ -323,7 +397,12 @@ export class CompraFormComponent {
       const fresca = await firstValueFrom(this.api.obtener(id));
       this.renglonesEd.update((rs) => rs.map((r) => {
         const it = fresca.items.find((x) => x.id === r.id);
-        return it ? { ...r, consumido: it.consumido ?? 0 } : r;
+        if (!it) {
+          return r;
+        }
+        const consumido = it.consumido ?? 0;
+        // Si lo que se quería quitar ya tiene consumo, vuelve a quedar activo (el error queda en el renglón).
+        return { ...r, consumido, quitado: consumido > 0 ? false : r.quitado };
       }));
       this.errores.update((e) => ({ ...validarRenglones(this.renglonesEd()), ...e }));
     } catch {

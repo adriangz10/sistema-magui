@@ -91,6 +91,29 @@ func TestMigracionesSQLite(t *testing.T) {
 		}
 	}
 
+	// US-001c: baja lógica de renglones (quitado_en, NULL = vigente) y Down de 00006
+	mustExec(t, conn, `INSERT INTO compra_item (id, compra_id, producto_id, cantidad, costo_unitario) VALUES ('ci1','c1','p1',2,10)`)
+	var quitado sql.NullString
+	if err := conn.QueryRow(`SELECT quitado_en FROM compra_item WHERE id='ci1'`).Scan(&quitado); err != nil || quitado.Valid {
+		t.Errorf("quitado_en por defecto debería ser NULL: %v %v", quitado, err)
+	}
+	mustExec(t, conn, `UPDATE compra_item SET quitado_en='2026-01-04T00:00:00.000Z' WHERE id='ci1'`)
+	if err := conn.QueryRow(`SELECT quitado_en FROM compra_item WHERE id='ci1'`).Scan(&quitado); err != nil || !quitado.Valid {
+		t.Errorf("quitado_en no se guardó: %v %v", quitado, err)
+	}
+	if err := m.Down(ctx); err != nil {
+		t.Fatalf("down 00006: %v", err)
+	}
+	if _, err := conn.Exec(`SELECT quitado_en FROM compra_item`); err == nil {
+		t.Error("tras el down de 00006 no debería existir quitado_en")
+	}
+	if err := m.Up(ctx); err != nil {
+		t.Fatalf("up 00006: %v", err)
+	}
+	if err := m.Down(ctx); err != nil {
+		t.Fatalf("down 00006 (2): %v", err)
+	}
+
 	// Down de 00005: los EDICION_COMPRA pasan a AJUSTE con la nota marcada y el stock no cambia
 	if err := m.Down(ctx); err != nil {
 		t.Fatalf("down 00005: %v", err)

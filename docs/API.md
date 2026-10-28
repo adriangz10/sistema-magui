@@ -131,9 +131,8 @@ Los combos no se compran (se compran sus productos). `fecha` vacía = ahora.
 
 ### Editar una compra
 
-Se entrega por partes: **US-001a** cabecera (fecha, empresa, notas), **US-001b** renglones existentes, **US-001c**
-agregar y quitar renglones. El contrato es el mismo en las tres; lo que todavía no está habilitado responde 422 con un
-código propio. Diseño: `docs/architecture/editar-compra.md` y ADRs 0001–0005.
+Se entrega por partes (a, b y c ya están disponibles): **US-001a** cabecera (fecha, empresa, notas), **US-001b** renglones existentes, **US-001c**
+agregar y quitar renglones. El contrato es el mismo en las tres. Diseño: `docs/architecture/editar-compra.md` y ADRs 0001–0005.
 
 ```json
 // PUT /compras/{id}
@@ -155,8 +154,8 @@ código propio. Diseño: `docs/architecture/editar-compra.md` y ADRs 0001–0005
 - `items` ausente o `null` = los renglones no cambian. Si viene (desde US-001b), es la lista **completa** de renglones
   (reemplazo, no parche); los índices `items[i]` de los errores corresponden a la posición en la lista enviada:
   - con `id`: renglón existente; el `productoId` debe ser el mismo (para cambiar de producto se quita y se agrega otro).
-  - sin `id`: renglón nuevo (desde US-001c; en US-001b → 422 `renglones_nuevos_no_disponibles`).
-  - renglones existentes que no vienen = quitados (desde US-001c; en US-001b → 422 `quitar_renglones_no_disponible`).
+  - sin `id`: renglón nuevo (US-001c): crea un lote nuevo con un movimiento `COMPRA`; el producto debe existir (404 `producto_no_encontrado`) y no ser combo (422 `producto_no_comprable`). Un renglón quitado antes no se puede reenviar (su `id` da 422 `items[i].id`).
+  - renglones existentes que no vienen = quitados (US-001c): solo si su lote no tiene unidades consumidas (si no, 409 `compra_consumida` con `fields["quitados[<id>]"]`); se descuenta solo la cantidad que trajo el renglón (lo sumado por ajustes manuales queda en el lote). La compra conserva al menos 1 renglón (422 `items`).
   - Mismas validaciones que al registrar: 1 a 300 renglones, cantidad entre 1 y 1.000.000, costo y precio hasta 9.999.999.999,99, total de la compra hasta 9.999.999.999,99 (422 `items` si lo supera), cantidad > 0, costo ≥ 0, precio > 0 si se informa,
     producto existente y no combo.
   - **`vencimiento: null` (o ausente) deja el lote SIN vencimiento** (estado `SIN_FECHA`); no significa "sin cambio".
@@ -169,7 +168,7 @@ Al editar, en una sola operación (todo o nada):
   ("Edición de compra del dd/mm/aaaa"); nunca se modifican movimientos existentes;
 - si cambió el costo o el vencimiento, el lote se actualiza en el lugar (afecta solo al stock restante y a ventas futuras;
   las ventas ya hechas no se recalculan);
-- un renglón nuevo crea su lote con un movimiento `COMPRA`; uno quitado deja su lote en cero con `EDICION_COMPRA` y se
+- un renglón nuevo crea su lote con un movimiento `COMPRA`; uno quitado descuenta de su lote la cantidad que trajo (`EDICION_COMPRA` negativo; el lote queda con lo sumado a mano, si hubo) y se
   conserva como historia (no aparece más en el detalle);
 - **último costo y precio:** solo si esta compra es la más reciente del producto (por **día** argentino de `fecha`; el mismo día, la cargada
   después), el producto toma el costo del último renglón de ese producto y, si el `precioVentaNuevo` del renglón
@@ -195,7 +194,6 @@ Errores:
 | 409 | `operacion_concurrente` | Otra operación se cruzó con esta (ya se reintentó 3 veces): volver a intentar |
 | 422 | `datos_invalidos` | `fields`: `fecha`, `notas`, `motivo`, `origen`, `version`, `items`, `items[i].id`, `items[i].productoId`, `items[i].cantidad`, `items[i].costoUnitario`, `items[i].precioVentaNuevo`, `items[i].vencimiento` |
 | 422 | `producto_no_comprable` | Un renglón nuevo es un combo |
-| 422 | `renglones_nuevos_no_disponibles` / `quitar_renglones_no_disponible` | Funciones de una parte todavía no entregada (US-001c): enviar un renglón sin `id` / omitir uno existente |
 
 ```json
 // 409 compra_consumida
