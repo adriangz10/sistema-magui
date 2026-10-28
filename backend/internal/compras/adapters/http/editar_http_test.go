@@ -15,6 +15,7 @@ import (
 	comhttp "magui/internal/compras/adapters/http"
 	"magui/internal/compras/application"
 	"magui/internal/compras/domain"
+	"magui/internal/kernel/dinero"
 	"magui/internal/kernel/errores"
 	"magui/internal/kernel/id"
 	"magui/internal/kernel/paginacion"
@@ -35,11 +36,19 @@ func (r *repo) ObtenerParaEditar(context.Context, string) (domain.Compra, error)
 func (r *repo) ActualizarCompra(_ context.Context, c domain.Compra, _ int) error { r.c = c; return nil }
 func (r *repo) GuardarEdicion(context.Context, domain.Edicion) error             { return nil }
 func (r *repo) Ediciones(context.Context, string) ([]domain.Edicion, error)      { return nil, nil }
+func (r *repo) ActualizarItems(context.Context, []domain.Item) error             { return nil }
+func (r *repo) CompraMasReciente(context.Context, string) (*application.CompraReciente, error) {
+	return &application.CompraReciente{CompraID: r.c.ID, Costo: dinero.MustParse("10")}, nil
+}
 
 type cat struct{}
 
-func (cat) Productos(context.Context, []string) (map[string]application.ProductoCompra, error) {
-	return nil, nil
+func (cat) Productos(_ context.Context, ids []string) (map[string]application.ProductoCompra, error) {
+	out := map[string]application.ProductoCompra{}
+	for _, id := range ids {
+		out[id] = application.ProductoCompra{Nombre: "Kaiak", PrecioVenta: dinero.MustParse("62000")}
+	}
+	return out, nil
 }
 func (cat) ValidarEmpresa(context.Context, string) error { return nil }
 func (cat) NombreEmpresa(context.Context, string) (string, error) {
@@ -51,9 +60,20 @@ type inv struct{}
 
 func (inv) Ingresar(context.Context, application.IngresoCompra) error { return nil }
 
+// El lote del renglón i1 tiene stock 1 (de 4): bajar por debajo de 3 unidades está bloqueado.
+func (inv) LotesDeRenglones(_ context.Context, ids []string, _ bool) (map[string]domain.LoteRenglon, error) {
+	out := map[string]domain.LoteRenglon{}
+	for _, id := range ids {
+		out[id] = domain.LoteRenglon{LoteID: "l-" + id, Stock: 1}
+	}
+	return out, nil
+}
+func (inv) AjustarLoteDeRenglon(context.Context, application.AjusteRenglon) error { return nil }
+
 func servidor() *httptest.Server {
 	ahora := time.Date(2026, 10, 27, 16, 0, 0, 0, time.UTC)
-	r := &repo{c: domain.Compra{ID: "c1", Fecha: time.Date(2026, 10, 20, 15, 0, 0, 0, time.UTC), Version: 1}}
+	r := &repo{c: domain.Compra{ID: "c1", Fecha: time.Date(2026, 10, 20, 15, 0, 0, 0, time.UTC), Version: 1,
+		Items: []domain.Item{{ID: "i1", ProductoID: "p1", Cantidad: 4, CostoUnitario: dinero.MustParse("100")}}}}
 	svc := application.NuevoServicio(application.Dependencias{Repo: r, Catalogo: cat{}, Inventario: inv{},
 		Tx: tx.SinTransaccion{}, IDs: id.UUIDv7{}, Reloj: reloj.Fijo{T: ahora}})
 	router := chi.NewRouter()
@@ -82,7 +102,15 @@ func TestPutCompra(t *testing.T) {
 		{"ok", `{"fecha":"2026-10-19","notas":"x","version":1}`, "", 200},
 		{"sin cambios", `{"fecha":"2026-10-20","version":1}`, "", 200},
 		{"version vieja", `{"fecha":"2026-10-19","notas":"y","version":7}`, "version_desactualizada", 409},
-		{"items", `{"fecha":"2026-10-19","version":1,"items":[]}`, "renglones_no_editables", 422},
+		{"items vacío", `{"fecha":"2026-10-19","version":1,"items":[]}`, "datos_invalidos", 422},
+		{"items sin cambios", `{"fecha":"2026-10-20","version":1,"items":[{"id":"i1","productoId":"p1","cantidad":4,"costoUnitario":"100","precioVentaNuevo":null,"vencimiento":null}]}`, "", 200},
+		{"subir cantidad", `{"fecha":"2026-10-20","version":1,"items":[{"id":"i1","productoId":"p1","cantidad":6,"costoUnitario":"100"}]}`, `"version":2`, 200},
+		{"vencimiento null", `{"fecha":"2026-10-20","version":1,"items":[{"id":"i1","productoId":"p1","cantidad":4,"costoUnitario":"100","vencimiento":null}]}`, "", 200},
+		{"consumida", `{"fecha":"2026-10-20","version":1,"items":[{"id":"i1","productoId":"p1","cantidad":2,"costoUnitario":"100"}]}`, "compra_consumida", 409},
+		{"campo del renglón", `{"fecha":"2026-10-20","version":1,"items":[{"id":"i1","productoId":"p1","cantidad":0,"costoUnitario":"100"}]}`, "items[0].cantidad", 422},
+		{"producto distinto", `{"fecha":"2026-10-20","version":1,"items":[{"id":"i1","productoId":"p2","cantidad":4,"costoUnitario":"100"}]}`, "items[0].productoId", 422},
+		{"renglón nuevo", `{"fecha":"2026-10-20","version":1,"items":[{"id":"i1","productoId":"p1","cantidad":4,"costoUnitario":"100"},{"productoId":"p1","cantidad":1,"costoUnitario":"1"}]}`, "renglones_nuevos_no_disponibles", 422},
+		{"un solo renglón", `{"fecha":"2026-10-20","version":1,"items":[{"id":"i1","productoId":"p1","cantidad":4,"costoUnitario":"100"}]}`, "", 200},
 		{"fecha vacía", `{"version":1}`, "datos_invalidos", 422},
 	}
 	for _, c := range casos {

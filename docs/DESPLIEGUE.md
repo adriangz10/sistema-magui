@@ -147,3 +147,10 @@ Con el servidor funcionando, generar el instalador apuntando al dominio (en la P
 Llevar `desktop/build/bin/Magui-amd64-installer.exe` a la PC de la tienda, instalarlo y abrir Magui. La primera
 vez hay que ingresar con conexión. Si cambia la dirección del servidor, se edita
 `%APPDATA%\Magui\config.json` y se vuelve a abrir la app (o se genera un instalador nuevo).
+
+## Requisitos de MySQL para la concurrencia de stock (ADR 0002)
+- **`binlog_format=ROW`** (es el valor por defecto en MySQL 8.4). Las transacciones de la API corren en `READ COMMITTED` y InnoDB
+  no admite escrituras en ese nivel con `binlog_format=STATEMENT`. Verificar con `SHOW VARIABLES LIKE 'binlog_format';`.
+- **`innodb_lock_wait_timeout`**: la API lo fija en **10 s por sesión** desde el DSN (`platform/config`), no hace falta tocar el
+  `.env` ni `my.cnf`. No subirlo por encima de ~20 s: el escritorio corta a los 30 s y reenviaría la venta.
+- Un deadlock se reintenta solo (hasta 3 veces); si persiste, la API responde 409 `operacion_concurrente` y la pantalla permite reintentar.

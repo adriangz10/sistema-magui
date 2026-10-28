@@ -59,10 +59,24 @@ export interface CompraDetalle extends CompraResumen {
     subtotal: Monto;
     precioVentaNuevo: Monto | null;
     vencimiento: FechaISO | null;
+    /** Unidades del lote que ya salieron (ventas, ajustes, combos). Mínimo editable de la cantidad. */
+    consumido: number;
+    /** Precio de venta vigente hoy del producto; null si no tiene. Opcional: respuestas viejas no lo traen. */
+    precioVentaActual?: Monto | null;
   }[];
 }
 
-/** Cuerpo de PUT /compras/{id}. Sin `items` los renglones no cambian (US-001a). */
+/** Renglón existente dentro del PUT (US-001b): `id` obligatorio, mismo `productoId`. */
+export interface ItemEditado {
+  id: string;
+  productoId: string;
+  cantidad: number;
+  costoUnitario: Monto;
+  precioVentaNuevo: Monto | null;
+  vencimiento: FechaISO | null;
+}
+
+/** Cuerpo de PUT /compras/{id}. Sin `items` los renglones no cambian; con `items` es la lista completa (US-001b). */
 export interface EditarCompra {
   fecha: FechaISO;
   empresaId: string;
@@ -70,6 +84,7 @@ export interface EditarCompra {
   version: number;
   origen: OrigenOperacion;
   motivo?: string;
+  items?: ItemEditado[];
 }
 
 export interface NuevaCompra {

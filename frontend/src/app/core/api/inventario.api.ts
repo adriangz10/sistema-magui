@@ -5,10 +5,11 @@ import { API_BASE_URL } from '../config/api.config';
 import { FechaISO, Monto, Pagina, parametros } from './modelos';
 
 export type EstadoLote = 'VENCIDO' | 'POR_VENCER' | 'VIGENTE' | 'SIN_FECHA';
-export type TipoMovimiento = 'INICIAL' | 'COMPRA' | 'VENTA' | 'ANULACION' | 'AJUSTE';
+export type TipoMovimiento = 'INICIAL' | 'COMPRA' | 'VENTA' | 'ANULACION' | 'AJUSTE' | 'EDICION_COMPRA';
 
 export const TIPOS_MOVIMIENTO: Record<TipoMovimiento, string> = {
   INICIAL: 'Stock inicial', COMPRA: 'Compra', VENTA: 'Venta', ANULACION: 'Anulación', AJUSTE: 'Ajuste',
+  EDICION_COMPRA: 'Edición de compra',
 };
 
 export interface Lote {

@@ -24,12 +24,14 @@ const (
 	MovVenta     TipoMovimiento = "VENTA"
 	MovAnulacion TipoMovimiento = "ANULACION"
 	MovAjuste    TipoMovimiento = "AJUSTE"
+	// MovEdicionCompra corrige la cantidad de un renglón de compra ya registrada (US-001b, ADR 0003).
+	MovEdicionCompra TipoMovimiento = "EDICION_COMPRA"
 )
 
 // Valido indica si es un tipo conocido.
 func (t TipoMovimiento) Valido() bool {
 	switch t {
-	case MovInicial, MovCompra, MovVenta, MovAnulacion, MovAjuste:
+	case MovInicial, MovCompra, MovVenta, MovAnulacion, MovAjuste, MovEdicionCompra:
 		return true
 	}
 	return false

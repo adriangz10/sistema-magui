@@ -17,10 +17,11 @@ import (
 )
 
 type repoMem struct {
-	compras      map[string]domain.Compra
-	ediciones    []domain.Edicion
-	falloEdicion error
-	escrituras   int
+	compras       map[string]domain.Compra
+	ediciones     []domain.Edicion
+	falloEdicion  error
+	escrituras    int
+	itemsEscritos int
 }
 
 func (r *repoMem) Guardar(_ context.Context, c domain.Compra) error {
@@ -45,8 +46,60 @@ func (r *repoMem) ActualizarCompra(_ context.Context, c domain.Compra, v int) er
 		return domain.ErrVersionDesactualizada
 	}
 	r.escrituras++
+	c.Items = r.compras[c.ID].Items // los renglones se graban con ActualizarItems
 	r.compras[c.ID] = c
 	return nil
+}
+func (r *repoMem) ActualizarItems(_ context.Context, items []domain.Item) error {
+	for _, nuevo := range items {
+		for id, c := range r.compras {
+			for i, it := range c.Items {
+				if it.ID == nuevo.ID {
+					c.Items = append([]domain.Item(nil), c.Items...)
+					c.Items[i] = nuevo
+					r.compras[id] = c
+					r.itemsEscritos++
+				}
+			}
+		}
+	}
+	return nil
+}
+
+// CompraMasReciente: fecha, created_at e id descendentes; costo del último renglón del producto.
+func (r *repoMem) CompraMasReciente(_ context.Context, productoID string) (*CompraReciente, error) {
+	var mejor *domain.Compra
+	for _, c := range r.compras {
+		tiene := false
+		for _, it := range c.Items {
+			tiene = tiene || it.ProductoID == productoID
+		}
+		if !tiene {
+			continue
+		}
+		dc := fecha.DelInstante(c.Fecha, reloj.ZonaArgentina)
+		if mejor == nil {
+			cc := c
+			mejor = &cc
+			continue
+		}
+		dm := fecha.DelInstante(mejor.Fecha, reloj.ZonaArgentina)
+		if dc.Despues(dm) || dc.String() == dm.String() &&
+			(c.CreatedAt.After(mejor.CreatedAt) || c.CreatedAt.Equal(mejor.CreatedAt) && c.ID > mejor.ID) {
+			cc := c
+			mejor = &cc
+		}
+	}
+	if mejor == nil {
+		return nil, nil
+	}
+	rec := &CompraReciente{CompraID: mejor.ID}
+	for _, it := range mejor.Items {
+		if it.ProductoID == productoID {
+			rec.Costo = it.CostoUnitario
+		}
+	}
+	return rec, nil
 }
 func (r *repoMem) GuardarEdicion(_ context.Context, e domain.Edicion) error {
 	if r.falloEdicion != nil {
@@ -69,19 +122,26 @@ func (r *repoMem) Obtener(_ context.Context, id string) (CompraDetalle, error) {
 	if !ok {
 		return CompraDetalle{}, domain.ErrCompraNoEncontrada
 	}
-	return CompraDetalle{CompraResumen: CompraResumen{ID: c.ID, Version: c.Version, Total: c.Total, Productos: len(c.Items), Unidades: c.Unidades()}}, nil
+	det := CompraDetalle{CompraResumen: CompraResumen{ID: c.ID, Version: c.Version, Total: c.Total, Productos: len(c.Items), Unidades: c.Unidades()}, Items: []ItemDTO{}}
+	for _, it := range c.Items {
+		det.Items = append(det.Items, ItemDTO{ID: it.ID, ProductoID: it.ProductoID, Cantidad: it.Cantidad, CostoUnitario: it.CostoUnitario,
+			PrecioVentaNuevo: it.PrecioVentaNuevo, Vencimiento: it.Vencimiento})
+	}
+	return det, nil
 }
 func (r *repoMem) Listar(context.Context, Filtro, paginacion.Solicitud) ([]CompraResumen, int, error) {
 	return nil, len(r.compras), nil
 }
 
 type catalogoMem struct {
+	consultas int
 	productos map[string]ProductoCompra
 	costos    []CostoProducto
 	motivo    string
 }
 
 func (c *catalogoMem) Productos(_ context.Context, ids []string) (map[string]ProductoCompra, error) {
+	c.consultas++
 	out := map[string]ProductoCompra{}
 	for _, id := range ids {
 		if p, ok := c.productos[id]; ok {
@@ -107,10 +167,39 @@ func (c *catalogoMem) RegistrarCostos(_ context.Context, cs []CostoProducto, mot
 	return nil
 }
 
-type inventarioMem struct{ ingresos []IngresoCompra }
+type inventarioMem struct {
+	ingresos []IngresoCompra
+	lotes    map[string]domain.LoteRenglon // por id de renglón
+	ajustes  []AjusteRenglon
+	bloqueos int
+	falla    error
+}
 
 func (i *inventarioMem) Ingresar(_ context.Context, in IngresoCompra) error {
 	i.ingresos = append(i.ingresos, in)
+	if i.lotes == nil {
+		i.lotes = map[string]domain.LoteRenglon{}
+	}
+	i.lotes[in.CompraItemID] = domain.LoteRenglon{LoteID: "lote-" + in.CompraItemID, Stock: in.Cantidad}
+	return nil
+}
+func (i *inventarioMem) LotesDeRenglones(_ context.Context, ids []string, bloquear bool) (map[string]domain.LoteRenglon, error) {
+	if bloquear {
+		i.bloqueos++
+	}
+	out := map[string]domain.LoteRenglon{}
+	for _, id := range ids {
+		if l, ok := i.lotes[id]; ok {
+			out[id] = l
+		}
+	}
+	return out, nil
+}
+func (i *inventarioMem) AjustarLoteDeRenglon(_ context.Context, a AjusteRenglon) error {
+	if i.falla != nil {
+		return i.falla
+	}
+	i.ajustes = append(i.ajustes, a)
 	return nil
 }
 

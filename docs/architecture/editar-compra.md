@@ -55,7 +55,7 @@ sequenceDiagram
     S-->>H: 200 detalle (misma version)
   end
   S->>C: ValidarEmpresa (si cambió) · Productos(ids nuevos + existentes)
-  S->>I: BloquearLotesDeRenglones(ids modificados/quitados) [FOR UPDATE + FOR SHARE]
+  S->>I: BloquearLotesDeRenglones(ids modificados/quitados) [FOR UPDATE en orden de id + lectura común en READ COMMITTED]
   S->>D: VerificarConsumo(plan, lotes) → 409 compra_consumida (todos los renglones)
   S->>R: CompraMasReciente(p) para productos afectados (ANTES)
   S->>R: ActualizarCompra(version) · ActualizarItems · AgregarItems · QuitarItems
@@ -216,7 +216,7 @@ puerto de catálogo con costo/precio, componente de historial que ya sabe dibuja
 | `internal/inventario/application/puertos.go` | `Repositorio` += `BloquearLotes(ids)`, `LotesPorCompraItem(itemIDs, bloquear)`, `ActualizarLote(id, costo, venc)`; `LotesConStock(productoID, bloquear)` |
 | `internal/inventario/application/servicio.go` | `LotesDeCompra(itemIDs, bloquear)`, `AjustarLoteDeCompra(AjusteLoteCompra)`; `RegistrarSalida` y `ajustarLote` usan lectura bloqueante (ADR 0002) |
 | `internal/inventario/application/modelos.go` | `AjusteLoteCompra{LoteID, Diferencia, Costo, Vencimiento, CompraID, Nota}` |
-| `internal/inventario/adapters/mysql/repositorio.go` | Consultas `FOR UPDATE` / `FOR SHARE`; `UPDATE lote` |
+| `internal/inventario/adapters/mysql/repositorio.go` | Consultas `FOR UPDATE` (ids resueltos antes, `ORDER BY id`) y lectura común del stock; `UPDATE lote`; `StockSinLote` |
 | `internal/platform/db/tx.go` (o `errores.go` nuevo) | Traducir MySQL 1213/1205 a 409 `operacion_concurrente` |
 | `internal/compras/domain/edicion.go` | Renglones modificados, `VerificarConsumo`, `ErrCompraConsumida`; en b rechaza nuevos/omitidos |
 | `internal/compras/application/compras.go` | Puertos `Inventario` += `LotesDeRenglones`, `BloquearLotesDeRenglones`, `AjustarLoteDeRenglon`; `Repositorio` += `ActualizarItems`, `CompraMasReciente`; pasos 2.2–2.4; `ObtenerCompra` completa `items[].consumido` |
@@ -292,3 +292,10 @@ productos afectados extensible, ajuste de lote que sirve para quitar.
 - (Resuelta) La edición desde el escritorio requiere conexión: el handler local reenvía el resto de `/api/*` con un
   `httputil.ReverseProxy` (todos los métodos, incluido `PUT`); sin conexión responde 503 `sin_conexion`. No hay cambios
   en `internal/escritorio`.
+
+## 8. Enmienda de concurrencia (revisión de US-001b)
+`db.Transactor` corre en `READ COMMITTED` sobre MySQL y reintenta hasta 3 veces ante 1213/1205 antes de responder 409
+`operacion_concurrente`; se reemplazó `FOR SHARE` por lecturas comunes tras el `FOR UPDATE` de los lotes. Detalle y supuestos
+revisados en la enmienda del [ADR 0002](adr/0002-concurrencia-edicion-compra-version-y-bloqueo-de-lotes.md). Además:
+"compra más reciente" compara el **día argentino** de `fecha`, luego `created_at` y luego `id`; cantidad máxima 1.000.000 por
+renglón y total máximo $9.999.999.999,99 (422 por campo).

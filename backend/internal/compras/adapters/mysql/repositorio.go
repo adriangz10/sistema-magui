@@ -152,8 +152,8 @@ func (n *nombreEmpresa) Scan(src any) error {
 
 func (r Repositorio) ActualizarCompra(ctx context.Context, c domain.Compra, versionAnterior int) error {
 	res, err := db.Conn(ctx, r.DB).ExecContext(ctx,
-		`UPDATE compra SET fecha = ?, empresa_id = ?, notas = ?, version = ?, updated_at = ? WHERE id = ? AND version = ?`,
-		c.Fecha, c.EmpresaID, c.Notas, c.Version, c.UpdatedAt, c.ID, versionAnterior)
+		`UPDATE compra SET fecha = ?, empresa_id = ?, notas = ?, total = ?, version = ?, updated_at = ? WHERE id = ? AND version = ?`,
+		c.Fecha, c.EmpresaID, c.Notas, c.Total.String(), c.Version, c.UpdatedAt, c.ID, versionAnterior)
 	if err != nil {
 		return err
 	}
@@ -163,6 +163,46 @@ func (r Repositorio) ActualizarCompra(ctx context.Context, c domain.Compra, vers
 		return domain.ErrVersionDesactualizada
 	}
 	return nil
+}
+
+func (r Repositorio) ActualizarItems(ctx context.Context, items []domain.Item) error {
+	conn := db.Conn(ctx, r.DB)
+	for _, it := range items {
+		var precio any
+		if it.PrecioVentaNuevo != nil {
+			precio = it.PrecioVentaNuevo.String()
+		}
+		var venc any
+		if it.Vencimiento != nil && !it.Vencimiento.IsZero() {
+			venc = *it.Vencimiento
+		}
+		if _, err := conn.ExecContext(ctx,
+			`UPDATE compra_item SET cantidad = ?, costo_unitario = ?, precio_venta_nuevo = ?, fecha_vencimiento = ? WHERE id = ?`,
+			it.Cantidad, it.CostoUnitario.String(), precio, venc, it.ID); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// CompraMasReciente: la compra con el día más nuevo que contiene al producto (RN-EC-15; empate:
+// created_at, id). Supone `fecha` guardada en UTC (la conexión usa loc=UTC) y Argentina en UTC-3 fijo,
+// sin horario de verano (así es desde 2009; si cambiara, habría que revisar el INTERVAL). El día es el argentino (UTC-3 fijo, sin horario de verano: no depende de las
+// tablas de zonas de MySQL), no el instante: dos compras del mismo día se desempatan por created_at; el costo es el del último renglón (mayor id) del producto en ella (RN-EC-15/16).
+func (r Repositorio) CompraMasReciente(ctx context.Context, productoID string) (*application.CompraReciente, error) {
+	var rec application.CompraReciente
+	err := db.Conn(ctx, r.DB).QueryRowContext(ctx, `
+		SELECT c.id, ci.costo_unitario
+		FROM compra_item ci JOIN compra c ON c.id = ci.compra_id
+		WHERE ci.producto_id = ?
+		ORDER BY DATE(DATE_SUB(c.fecha, INTERVAL 3 HOUR)) DESC, c.created_at DESC, c.id DESC, ci.id DESC LIMIT 1`, productoID).Scan(&rec.CompraID, &rec.Costo)
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	return &rec, nil
 }
 
 func (r Repositorio) GuardarEdicion(ctx context.Context, e domain.Edicion) error {

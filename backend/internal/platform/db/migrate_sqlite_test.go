@@ -68,6 +68,47 @@ func TestMigracionesSQLite(t *testing.T) {
 		t.Error("se esperaba error por origen inválido")
 	}
 
+	// US-001b: movimiento EDICION_COMPRA (CHECK reconstruido) y vistas intactas
+	mustExec(t, conn, `INSERT INTO movimiento_stock (id, producto_id, lote_id, cantidad, tipo, referencia_id, fecha) VALUES ('m4','p1','l1',2,'EDICION_COMPRA','c1','2026-01-03')`)
+	mustExec(t, conn, `INSERT INTO movimiento_stock (id, producto_id, lote_id, cantidad, tipo, fecha) VALUES ('m5','p1','l1',-1,'EDICION_COMPRA','2026-01-03')`)
+	if _, err := conn.Exec(`INSERT INTO movimiento_stock (id, producto_id, lote_id, cantidad, tipo, fecha) VALUES ('m6','p1','l1',1,'OTRO','2026-01-03')`); err == nil {
+		t.Error("se esperaba error por tipo de movimiento inválido")
+	}
+	if _, err := conn.Exec(`INSERT INTO movimiento_stock (id, producto_id, lote_id, cantidad, tipo, fecha) VALUES ('m7','p1','l1',0,'EDICION_COMPRA','2026-01-03')`); err == nil {
+		t.Error("se esperaba error: cantidad cero")
+	}
+	// Los movimientos de antes de la reconstrucción siguen y las vistas calculan con el tipo nuevo
+	if err := conn.QueryRow(`SELECT stock FROM v_stock_producto WHERE producto_id='p1'`).Scan(&stock); err != nil || stock != 4 {
+		t.Errorf("v_stock_producto = %d, err = %v; se esperaba 4", stock, err)
+	}
+	if err := conn.QueryRow(`SELECT stock FROM v_stock_lote WHERE lote_id='l1'`).Scan(&stock); err != nil || stock != 4 {
+		t.Errorf("v_stock_lote = %d, err = %v; se esperaba 4", stock, err)
+	}
+	for _, ix := range []string{"idx_ms_producto", "idx_ms_lote", "idx_ms_referencia", "idx_ms_fecha", "idx_ms_created"} {
+		var n int
+		if err := conn.QueryRow(`SELECT count(*) FROM sqlite_master WHERE type='index' AND name = ?`, ix).Scan(&n); err != nil || n != 1 {
+			t.Errorf("falta el índice %s tras 00005 (err=%v)", ix, err)
+		}
+	}
+
+	// Down de 00005: los EDICION_COMPRA pasan a AJUSTE con la nota marcada y el stock no cambia
+	if err := m.Down(ctx); err != nil {
+		t.Fatalf("down 00005: %v", err)
+	}
+	var tipo, nota string
+	if err := conn.QueryRow(`SELECT tipo, nota FROM movimiento_stock WHERE id='m4'`).Scan(&tipo, &nota); err != nil || tipo != "AJUSTE" || nota != "[EDICION_COMPRA] " {
+		t.Errorf("m4 tras down = %q %q (%v)", tipo, nota, err)
+	}
+	if err := conn.QueryRow(`SELECT stock FROM v_stock_producto WHERE producto_id='p1'`).Scan(&stock); err != nil || stock != 4 {
+		t.Errorf("stock tras down = %d (%v)", stock, err)
+	}
+	if _, err := conn.Exec(`INSERT INTO movimiento_stock (id, producto_id, lote_id, cantidad, tipo, fecha) VALUES ('m8','p1','l1',1,'EDICION_COMPRA','2026-01-03')`); err == nil {
+		t.Error("tras el down el CHECK no debería aceptar EDICION_COMPRA")
+	}
+	if err := m.Up(ctx); err != nil {
+		t.Fatalf("up tras down: %v", err)
+	}
+
 	// Ida y vuelta
 	if err := m.Reset(ctx); err != nil {
 		t.Fatalf("reset: %v", err)

@@ -8,11 +8,14 @@ import { CompraDetalle, ComprasApi } from '../../core/api/compras.api';
 import { origenDispositivo } from '../../core/config/origen';
 import { ToastService } from '../../core/ui/toast.service';
 import { aCentavos, DineroPipe, deCentavos } from '../../shared/formato/dinero';
-import { FechaPipe, hoyISO } from '../../shared/formato/fecha';
+import { hoyISO } from '../../shared/formato/fecha';
 import { BuscadorProductoComponent } from '../../shared/ui/buscador-producto.component';
 import { CampoComponent } from '../../shared/ui/campo.component';
 import { InputDineroComponent } from '../../shared/ui/input-dinero.component';
-import { armarEdicion, cabeceraDe, hayCambios, seAplicoEdicion } from './edicion-compra';
+import {
+  armarEdicion, armarItems, cabeceraDe, hayCambios, hayCambiosRenglones, minimoCantidad, RenglonEditable, renglonesDe,
+  resumenEfectos, seAplicoEdicion, totalRenglones, validarRenglones,
+} from './edicion-compra';
 
 interface Renglon {
   clave: number;
@@ -29,7 +32,7 @@ interface Renglon {
 /** Carga de una compra: productos, cantidades, costo, vencimiento y nuevo precio de reventa. */
 @Component({
   selector: 'app-compra-form',
-  imports: [FormsModule, LucideAngularModule, DineroPipe, FechaPipe, BuscadorProductoComponent, CampoComponent, InputDineroComponent],
+  imports: [FormsModule, LucideAngularModule, DineroPipe, BuscadorProductoComponent, CampoComponent, InputDineroComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <div class="space-y-5">
@@ -60,27 +63,43 @@ interface Renglon {
           </div>
         }
 
-        <p class="aviso-info">Por ahora solo se puede editar la cabecera. Cambiar los renglones llega en una próxima versión.</p>
-        <div class="overflow-x-auto">
-          <table class="tabla">
-            <caption class="sr-only">Renglones de la compra (solo lectura)</caption>
-            <thead><tr><th scope="col">Producto</th><th scope="col" class="text-right">Cant.</th><th scope="col" class="text-right">Costo</th>
-              <th scope="col">Vence</th><th scope="col" class="text-right">Subtotal</th></tr></thead>
-            <tbody>
-              @for (it of compra()!.items; track it.id) {
-                <tr>
-                  <td><p class="font-medium">{{ it.producto }}</p><p class="text-xs text-muted">{{ it.sku }}</p></td>
-                  <td class="text-right tabular-nums">{{ it.cantidad }}</td>
-                  <td class="text-right tabular-nums">{{ it.costoUnitario | dinero }}</td>
-                  <td class="whitespace-nowrap">{{ it.vencimiento | fecha }}</td>
-                  <td class="text-right font-medium tabular-nums">{{ it.subtotal | dinero }}</td>
-                </tr>
-              }
-            </tbody>
-          </table>
-        </div>
+        @if (concurrente()) {
+          <div class="aviso-warn" role="alert">Otra operación se cruzó, intentá de nuevo.</div>
+        }
+
+        <ul class="space-y-3" aria-label="Renglones de la compra">
+          @for (r of renglonesEd(); track r.id; let i = $index) {
+            <li class="rounded-xl border border-ink-200 p-4 dark:border-ink-700">
+              <div class="mb-3">
+                <p class="font-medium">{{ r.producto }}</p>
+                <p class="text-xs text-muted">{{ r.sku }} · ya salieron {{ r.consumido }} de {{ r.cantidadOriginal }}</p>
+              </div>
+              <div class="grid gap-3 sm:grid-cols-4">
+                <app-campo etiqueta="Cantidad" [para]="'e-cant-' + r.id" [error]="errorRenglon(i, 'cantidad')">
+                  <input [id]="'e-cant-' + r.id" type="number" [min]="minimo(r)" inputmode="numeric" class="input" [(ngModel)]="r.cantidad" (ngModelChange)="refrescar()" />
+                </app-campo>
+                <app-campo etiqueta="Costo c/u" [para]="'e-costo-' + r.id" [error]="errorRenglon(i, 'costoUnitario')">
+                  <app-input-dinero [idCampo]="'e-costo-' + r.id" [(ngModel)]="r.costo" (ngModelChange)="refrescar()" />
+                </app-campo>
+                <app-campo etiqueta="Nuevo precio" [para]="'e-precio-' + r.id" [opcional]="true" [error]="errorRenglon(i, 'precioVentaNuevo')">
+                  <app-input-dinero [idCampo]="'e-precio-' + r.id" [(ngModel)]="r.precioNuevo" (ngModelChange)="refrescar()" placeholder="Sin cambio" />
+                </app-campo>
+                <app-campo etiqueta="Vencimiento" [para]="'e-venc-' + r.id" [opcional]="true" [error]="errorRenglon(i, 'vencimiento')">
+                  <input [id]="'e-venc-' + r.id" type="date" class="input" [(ngModel)]="r.vencimiento" (ngModelChange)="refrescar()" />
+                </app-campo>
+              </div>
+              <p class="mt-2 text-right text-sm text-muted">Subtotal <strong class="text-ink-900 tabular-nums dark:text-ink-100">{{ subtotal(r) | dinero }}</strong></p>
+            </li>
+          }
+        </ul>
+        @if (errores()['items']) { <p class="text-sm text-danger" role="alert">{{ errores()['items'] }}</p> }
+        @if (efectos().length) {
+          <ul class="aviso-info list-disc pl-6" aria-label="Efectos de los cambios">
+            @for (ef of efectos(); track ef) { <li>{{ ef }}</li> }
+          </ul>
+        }
         <div class="flex flex-wrap items-center justify-between gap-3 border-t border-ink-100 pt-4 dark:border-ink-800">
-          <p class="text-lg">Total de la compra <strong class="tabular-nums">{{ compra()!.total | dinero }}</strong></p>
+          <p class="text-lg">Total de la compra <strong class="tabular-nums">{{ totalEdicion() | dinero }}</strong></p>
           <div class="flex gap-2">
             <button type="button" class="btn-secundario" (click)="cancelado.emit()">Cancelar</button>
             <button type="button" class="btn-primario" [disabled]="guardando() || desactualizada()" (click)="guardarEdicion()">Guardar cambios</button>
@@ -164,6 +183,9 @@ export class CompraFormComponent {
   protected readonly esEdicion = computed(() => this.compra() !== null);
   protected readonly desactualizada = signal(false);
   protected readonly renglones = signal<Renglon[]>([]);
+  /** Renglones existentes en edición (US-001b). */
+  protected readonly renglonesEd = signal<RenglonEditable[]>([]);
+  protected readonly concurrente = signal(false);
   protected readonly errores = signal<Record<string, string>>({});
   protected readonly guardando = signal(false);
   /** Se incrementa para recalcular totales cuando cambia un campo editado en el lugar. */
@@ -181,6 +203,8 @@ export class CompraFormComponent {
         this.motivo = '';
         this.errores.set({});
         this.desactualizada.set(false);
+        this.concurrente.set(false);
+        this.renglonesEd.set(renglonesDe(c));
       }
     });
   }
@@ -188,6 +212,14 @@ export class CompraFormComponent {
   protected readonly total = computed(() => {
     this.version();
     return deCentavos(this.renglones().reduce((t, r) => t + aCentavos(r.costo) * (Number(r.cantidad) || 0), 0));
+  });
+  protected readonly totalEdicion = computed(() => {
+    this.version();
+    return totalRenglones(this.renglonesEd());
+  });
+  protected readonly efectos = computed(() => {
+    this.version();
+    return resumenEfectos(this.renglonesEd());
   });
   protected readonly unidades = computed(() => {
     this.version();
@@ -212,7 +244,11 @@ export class CompraFormComponent {
     this.version.update((v) => v + 1);
   }
 
-  protected subtotal(r: Renglon): string {
+  protected minimo(r: RenglonEditable): number {
+    return minimoCantidad(r.consumido);
+  }
+
+  protected subtotal(r: { costo: string | null; cantidad: number | string | null }): string {
     return deCentavos(aCentavos(r.costo) * (Number(r.cantidad) || 0));
   }
 
@@ -238,17 +274,20 @@ export class CompraFormComponent {
     if (actual.motivo.length > 255) {
       locales['motivo'] = 'Máximo 255 caracteres';
     }
+    Object.assign(locales, validarRenglones(this.renglonesEd()));
     this.errores.set(locales);
+    this.concurrente.set(false);
     if (Object.keys(locales).length) {
       return;
     }
-    if (!hayCambios(original, actual)) {
+    const cambioRenglones = hayCambiosRenglones(original, this.renglonesEd());
+    if (!cambioRenglones && !hayCambios(original, actual)) {
       this.sinCambios.emit();
       return;
     }
     this.guardando.set(true);
     try {
-      const compra = await firstValueFrom(this.api.editar(original.id, armarEdicion(original, actual, origenDispositivo())));
+      const compra = await firstValueFrom(this.api.editar(original.id, armarEdicion(original, actual, origenDispositivo(), cambioRenglones ? armarItems(this.renglonesEd()) : undefined)));
       if (seAplicoEdicion(original.version, compra)) {
         this.guardado.emit(compra);
       } else {
@@ -258,6 +297,11 @@ export class CompraFormComponent {
       const err = ApiError.desde(e);
       if (err.codigo === 'version_desactualizada') {
         this.desactualizada.set(true);
+      } else if (err.codigo === 'compra_consumida') {
+        this.errores.set({ ...err.campos });
+        await this.refrescarConsumido(original.id);
+      } else if (err.codigo === 'operacion_concurrente') {
+        this.concurrente.set(true);
       } else if (err.codigo === 'compra_no_encontrada') {
         this.toast.error(new ApiError(404, err.codigo, 'La compra ya no existe'));
         this.cancelado.emit();
@@ -270,6 +314,20 @@ export class CompraFormComponent {
       }
     } finally {
       this.guardando.set(false);
+    }
+  }
+
+  /** Tras un 409 compra_consumida: trae el consumo actual sin pisar lo que se tipeó y revalida los mínimos. */
+  private async refrescarConsumido(id: string): Promise<void> {
+    try {
+      const fresca = await firstValueFrom(this.api.obtener(id));
+      this.renglonesEd.update((rs) => rs.map((r) => {
+        const it = fresca.items.find((x) => x.id === r.id);
+        return it ? { ...r, consumido: it.consumido ?? 0 } : r;
+      }));
+      this.errores.update((e) => ({ ...validarRenglones(this.renglonesEd()), ...e }));
+    } catch {
+      // Se conservan los errores del servidor; el usuario puede recargar.
     }
   }
 

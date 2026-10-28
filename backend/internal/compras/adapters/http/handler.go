@@ -2,7 +2,7 @@
 //
 //	GET  /compras        ?desde=&hasta=&empresaId=&page=
 //	GET  /compras/{id}
-//	PUT  /compras/{id}   {fecha, empresaId?, notas?, version, origen?, motivo?, items?}  (US-001a: items se rechaza)
+//	PUT  /compras/{id}   {fecha, empresaId?, notas?, version, origen?, motivo?, items?}  (items opcional: lista completa de renglones existentes, US-001b)
 //	POST /compras        {fecha?, empresaId?, notas?, items: [{productoId, cantidad, costoUnitario, precioVentaNuevo?, vencimiento?}]}
 package http
 
@@ -101,7 +101,8 @@ func (h *Handler) registrar(w http.ResponseWriter, r *http.Request) {
 	httpx.JSON(w, http.StatusCreated, res)
 }
 
-// editarReq es el contrato final de PUT /compras/{id}; en US-001a `items` presente se rechaza.
+// editarReq es el contrato final de PUT /compras/{id}. `items` ausente/null = renglones sin cambios;
+// presente = lista completa (reemplazo): un vencimiento null deja el lote sin vencimiento.
 type editarReq struct {
 	Fecha     string `json:"fecha"` // AAAA-MM-DD o ISO
 	EmpresaID string `json:"empresaId"`

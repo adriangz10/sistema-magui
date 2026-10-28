@@ -52,6 +52,9 @@ func Error(w http.ResponseWriter, r *http.Request, log *slog.Logger, err error) 
 		}})
 		return
 	}
+	if e.Codigo == "operacion_concurrente" { // disparador de revisión del ADR 0002
+		log.Warn("operación concurrente", "path", r.URL.Path, "request_id", middleware.GetReqID(r.Context()))
+	}
 	JSON(w, status(e.Tipo), cuerpoError{detalleError{Code: e.Codigo, Message: e.Mensaje, Fields: e.Campos}})
 }
 

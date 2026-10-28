@@ -45,9 +45,11 @@ type DBConfig struct {
 	Name     string
 }
 
-// DSN arma la cadena de conexión para el driver de MySQL.
+// DSN arma la cadena de conexión para el driver de MySQL. Fija por sesión innodb_lock_wait_timeout=10
+// (el default de MySQL son 50 s): una espera de bloqueo agotada responde 409 en 10 s, bien dentro del
+// tiempo de espera del proxy del escritorio (30 s), que si no registraría la venta offline otra vez.
 func (d DBConfig) DSN() string {
-	return fmt.Sprintf("%s:%s@tcp(%s:%s)/%s?parseTime=true&loc=UTC&charset=utf8mb4&collation=utf8mb4_0900_ai_ci",
+	return fmt.Sprintf("%s:%s@tcp(%s:%s)/%s?parseTime=true&loc=UTC&charset=utf8mb4&collation=utf8mb4_0900_ai_ci&innodb_lock_wait_timeout=10",
 		d.User, d.Password, d.Host, d.Port, d.Name)
 }
 

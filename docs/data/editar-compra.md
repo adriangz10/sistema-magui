@@ -2,7 +2,7 @@
 
 Autoría: Software Architect + Database Engineer · Fecha: 2026-10-27 · ADRs: 0002, 0003, 0004, 0005
 
-Motor de producción: **MySQL 8.4** (InnoDB, `REPEATABLE READ`). `migrations/sqlite` se mantiene **en paralelo**
+Motor de producción: **MySQL 8.4** (InnoDB; las transacciones de la aplicación corren en `READ COMMITTED`, ver ADR 0002). `migrations/sqlite` se mantiene **en paralelo**
 (mismas tablas y columnas, convención del repo) aunque el servidor no lo usa para compras/inventario; el escritorio
 usa su propio esquema (`migrations/escritorio`) y **no cambia**. Migraciones con goose, embebidas en el binario.
 
@@ -87,7 +87,7 @@ erDiagram
 | Lote de cada renglón: `lote WHERE compra_item_id IN (…)` | **Falta índice**: `lote.compra_item_id` tiene FK, y en MySQL la FK crea índice implícito (`fk_lote_compra_item`). En SQLite no hay índice → agregar `idx_lote_compra_item` en 00004 (sqlite) para paridad de rendimiento |
 | Más reciente de un producto: `compra_item ci JOIN compra c … WHERE ci.producto_id = ? AND ci.quitado_en IS NULL ORDER BY c.fecha DESC, c.created_at DESC, c.id DESC, ci.id DESC LIMIT 1` | `idx_ci_producto` + PK de compra (decenas de filas por producto) |
 | Historial: `compra_edicion WHERE compra_id = ? ORDER BY version DESC` | `uq_ce_compra_version` |
-| Stock de lotes con bloqueo (`… GROUP BY l.id FOR SHARE`) | PK de lote + `idx_ms_lote` |
+| Stock de lotes con bloqueo (lectura común tras `FOR UPDATE` de los lotes) | PK de lote + `idx_ms_lote` |
 
 ## 3. Migraciones planificadas (SQL de referencia)
 

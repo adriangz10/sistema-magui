@@ -8,6 +8,7 @@ import (
 	catalogo "magui/internal/catalogo/application"
 	catdomain "magui/internal/catalogo/domain"
 	"magui/internal/compras/application"
+	"magui/internal/compras/domain"
 	inventario "magui/internal/inventario/application"
 	invdomain "magui/internal/inventario/domain"
 )
@@ -22,7 +23,7 @@ func (c Catalogo) Productos(ctx context.Context, ids []string) (map[string]appli
 	}
 	out := make(map[string]application.ProductoCompra, len(info))
 	for id, p := range info {
-		out[id] = application.ProductoCompra{Nombre: p.Nombre, Combo: p.Tipo == catdomain.TipoCombo}
+		out[id] = application.ProductoCompra{Nombre: p.Nombre, Combo: p.Tipo == catdomain.TipoCombo, Costo: p.Costo, PrecioVenta: p.PrecioVenta}
 	}
 	return out, nil
 }
@@ -58,4 +59,24 @@ func (i Inventario) Ingresar(ctx context.Context, in application.IngresoCompra) 
 		CompraItemID: &in.CompraItemID, Tipo: invdomain.MovCompra, ReferenciaID: &in.CompraID,
 	})
 	return err
+}
+
+// LotesDeRenglones devuelve el lote y el stock de cada renglón (por id de renglón).
+func (i Inventario) LotesDeRenglones(ctx context.Context, itemIDs []string, bloquear bool) (map[string]domain.LoteRenglon, error) {
+	lotes, err := i.Svc.LotesDeCompra(ctx, itemIDs, bloquear)
+	if err != nil {
+		return nil, err
+	}
+	out := make(map[string]domain.LoteRenglon, len(lotes))
+	for _, l := range lotes {
+		if l.CompraItemID != nil {
+			out[*l.CompraItemID] = domain.LoteRenglon{LoteID: l.ID, Stock: l.Stock}
+		}
+	}
+	return out, nil
+}
+
+func (i Inventario) AjustarLoteDeRenglon(ctx context.Context, a application.AjusteRenglon) error {
+	return i.Svc.AjustarLoteDeCompra(ctx, inventario.AjusteLoteCompra{LoteID: a.LoteID, Diferencia: a.Diferencia,
+		Costo: a.Costo, Vencimiento: a.Vencimiento, CompraID: a.CompraID, Nota: a.Nota})
 }

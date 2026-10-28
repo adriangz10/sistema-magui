@@ -82,10 +82,11 @@ func TestPlanValidaciones(t *testing.T) {
 			t.Errorf("falta error en %s: %v", k, cs)
 		}
 	}
+	// Lista vacía: "datos_invalidos" (al menos un renglón).
 	c = cab()
-	c.ConRenglones = true
-	if e, ok := errores.Como(ValidarEdicion(c, ahora)); !ok || e.Codigo != "renglones_no_editables" {
-		t.Errorf("items: %v", e)
+	c.Renglones = &[]RenglonEdicion{}
+	if campos(ValidarEdicion(c, ahora))["items"] == "" {
+		t.Error("lista vacía debería fallar")
 	}
 }
 

@@ -31,12 +31,25 @@ type Repositorio interface {
 	GuardarEdicion(ctx context.Context, e domain.Edicion) error
 	// Ediciones devuelve el historial de la compra, de la más reciente a la más vieja.
 	Ediciones(ctx context.Context, compraID string) ([]domain.Edicion, error)
+	// ActualizarItems graba cantidad, costo, precio y vencimiento de renglones existentes.
+	ActualizarItems(ctx context.Context, items []domain.Item) error
+	// CompraMasReciente devuelve la compra más reciente que contiene al producto (por día argentino de
+	// la fecha; empate: created_at e id) con el costo de su último renglón de ese producto; nil si no hay ninguna.
+	CompraMasReciente(ctx context.Context, productoID string) (*CompraReciente, error)
+}
+
+// CompraReciente es el resultado de CompraMasReciente.
+type CompraReciente struct {
+	CompraID string
+	Costo    dinero.Dinero // costo del último renglón (mayor id) del producto en esa compra
 }
 
 // ProductoCompra son los datos del catálogo que necesita una compra.
 type ProductoCompra struct {
-	Nombre string
-	Combo  bool
+	Nombre      string
+	Combo       bool
+	Costo       *dinero.Dinero // último costo actual del producto
+	PrecioVenta dinero.Dinero  // precio de venta actual
 }
 
 // CostoProducto es lo que una compra actualiza en el catálogo.
@@ -68,6 +81,21 @@ type IngresoCompra struct {
 // Inventario es el puerto hacia el módulo de inventario.
 type Inventario interface {
 	Ingresar(ctx context.Context, in IngresoCompra) error
+	// LotesDeRenglones devuelve, por id de renglón, su lote y el stock actual. Con bloquear toma los
+	// lotes con FOR UPDATE y lee el stock de forma bloqueante (ADR 0002).
+	LotesDeRenglones(ctx context.Context, itemIDs []string, bloquear bool) (map[string]domain.LoteRenglon, error)
+	// AjustarLoteDeRenglon aplica la diferencia de cantidad (EDICION_COMPRA) y el costo y vencimiento nuevos.
+	AjustarLoteDeRenglon(ctx context.Context, a AjusteRenglon) error
+}
+
+// AjusteRenglon corrige el lote de un renglón de compra editado.
+type AjusteRenglon struct {
+	LoteID      string
+	Diferencia  int
+	Costo       dinero.Dinero
+	Vencimiento *fecha.Fecha
+	CompraID    string
+	Nota        string
 }
 
 // --- Modelos ---
@@ -101,6 +129,10 @@ type ItemDTO struct {
 	Subtotal         dinero.Dinero  `json:"subtotal"`
 	PrecioVentaNuevo *dinero.Dinero `json:"precioVentaNuevo"`
 	Vencimiento      *fecha.Fecha   `json:"vencimiento"`
+	Consumido        int            `json:"consumido"` // unidades del lote que ya salieron (cantidad - stock del lote)
+	// PrecioVentaActual es el precio de venta vigente hoy del producto en el catálogo (solo lectura;
+	// null si el catálogo no lo conoce). Sirve para mostrar "el precio pasará de $A a $B".
+	PrecioVentaActual *dinero.Dinero `json:"precioVentaActual"`
 }
 
 type CompraDetalle struct {
@@ -192,13 +224,16 @@ func (s *Servicio) RegistrarCompra(ctx context.Context, cmd ComandoCompra) (Comp
 		if err := s.repo.Guardar(ctx, compra); err != nil {
 			return err
 		}
-		costos := make([]CostoProducto, 0, len(compra.Items))
 		for _, it := range compra.Items {
 			if err := s.inventario.Ingresar(ctx, IngresoCompra{CompraID: compra.ID, CompraItemID: it.ID,
 				ProductoID: it.ProductoID, Cantidad: it.Cantidad, Costo: it.CostoUnitario, Vencimiento: it.Vencimiento}); err != nil {
 				return err
 			}
-			costos = append(costos, CostoProducto{ProductoID: it.ProductoID, Costo: it.CostoUnitario, PrecioVenta: it.PrecioVentaNuevo})
+		}
+		// Último costo y precio: solo si esta es la compra más reciente del producto (P-A1).
+		costos, err := s.costosDeAlta(ctx, compra)
+		if err != nil || len(costos) == 0 {
+			return err
 		}
 		return s.catalogo.RegistrarCostos(ctx, costos, "Compra del "+fecha.DelInstante(compra.Fecha, reloj.ZonaArgentina).String())
 	})
@@ -206,6 +241,34 @@ func (s *Servicio) RegistrarCompra(ctx context.Context, cmd ComandoCompra) (Comp
 		return CompraDetalle{}, err
 	}
 	return s.ObtenerCompra(ctx, compra.ID)
+}
+
+// costosDeAlta arma lo que la compra recién guardada cambia en el catálogo: por cada producto en
+// el que es la compra más reciente, el costo de su último renglón y el último precio informado.
+func (s *Servicio) costosDeAlta(ctx context.Context, c domain.Compra) ([]CostoProducto, error) {
+	var out []CostoProducto
+	vistos := map[string]bool{}
+	for _, it := range c.Items {
+		if vistos[it.ProductoID] {
+			continue
+		}
+		vistos[it.ProductoID] = true
+		rec, err := s.repo.CompraMasReciente(ctx, it.ProductoID)
+		if err != nil {
+			return nil, err
+		}
+		if rec == nil || rec.CompraID != c.ID {
+			continue
+		}
+		cp := CostoProducto{ProductoID: it.ProductoID, Costo: rec.Costo}
+		for _, o := range c.Items {
+			if o.ProductoID == it.ProductoID && o.PrecioVentaNuevo != nil {
+				cp.PrecioVenta = o.PrecioVentaNuevo
+			}
+		}
+		out = append(out, cp)
+	}
+	return out, nil
 }
 
 func (s *Servicio) validarProductos(ctx context.Context, c domain.Compra) error {
@@ -239,12 +302,50 @@ func (s *Servicio) ObtenerCompra(ctx context.Context, id string) (CompraDetalle,
 	if err != nil {
 		return CompraDetalle{}, err
 	}
+	if err := s.completarConsumo(ctx, &det); err != nil {
+		return CompraDetalle{}, err
+	}
 	det.Ediciones = make([]EdicionDTO, len(eds))
 	for i, e := range eds {
 		det.Ediciones[i] = EdicionDTO{ID: e.ID, Fecha: e.Fecha, Origen: e.Origen, Motivo: e.Motivo, Version: e.Version,
 			Cabecera: e.Cambios.Cabecera, Renglones: e.Cambios.Renglones}
 	}
 	return det, nil
+}
+
+// completarConsumo calcula items[].consumido (unidades del lote del renglón que ya salieron) y
+// items[].precioVentaActual (una sola consulta al catálogo para todos los productos de la compra).
+func (s *Servicio) completarConsumo(ctx context.Context, det *CompraDetalle) error {
+	ids := make([]string, len(det.Items))
+	for i, it := range det.Items {
+		ids[i] = it.ID
+	}
+	lotes, err := s.inventario.LotesDeRenglones(ctx, ids, false)
+	if err != nil {
+		return err
+	}
+	pids := make([]string, 0, len(det.Items))
+	vistos := map[string]bool{}
+	for _, it := range det.Items {
+		if !vistos[it.ProductoID] {
+			vistos[it.ProductoID] = true
+			pids = append(pids, it.ProductoID)
+		}
+	}
+	prods, err := s.catalogo.Productos(ctx, pids)
+	if err != nil {
+		return err
+	}
+	for i, it := range det.Items {
+		if p, ok := prods[it.ProductoID]; ok {
+			precio := p.PrecioVenta
+			det.Items[i].PrecioVentaActual = &precio
+		}
+		if l, ok := lotes[it.ID]; ok {
+			det.Items[i].Consumido = max(0, it.Cantidad-l.Stock)
+		}
+	}
+	return nil
 }
 
 // ListarCompras devuelve las compras, de la más reciente a la más vieja.

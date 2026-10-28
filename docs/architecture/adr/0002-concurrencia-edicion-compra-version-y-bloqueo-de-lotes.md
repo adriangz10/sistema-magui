@@ -83,3 +83,32 @@ Elegimos **C**, en dos etapas:
   cambio en `RegistrarSalida`/`ajustarLote`, traducción de 1213/1205, test de integración con dos conexiones.
 - Cuándo revisarla: si aparecen 409 `operacion_concurrente` en los logs con frecuencia (> 1 por semana), evaluar
   reintento automático en `db.Transactor` o READ COMMITTED (nuevo ADR).
+
+## Enmienda 2026-10-27 (revisión de código y QA de US-001b): READ COMMITTED y reintento acotado
+Qué cambia respecto de lo escrito arriba (la opción D se adopta **acotada al `db.Transactor`**, no como cambio global de la base):
+- **Aislamiento.** Las transacciones que abre `db.Transactor` sobre MySQL corren en `READ COMMITTED`. Motivo: el `FOR SHARE`
+  sobre `movimiento_stock` en `REPEATABLE READ` toma bloqueos de brecha (next-key) sobre `idx_ms_lote` y provocaba deadlocks
+  entre ventas de productos distintos con lotes intercalados. En SQLite (escritorio) no cambia nada.
+- **Lecturas.** Ya no se usa `FOR SHARE`. Primero se bloquean los lotes con `FOR UPDATE` (siempre `WHERE id IN (…) ORDER BY id`,
+  ids resueltos antes sin bloqueo) y después se lee el stock con un `SELECT` común, que en `READ COMMITTED` ve lo último
+  confirmado. Cualquier otra transacción que quiera insertar un movimiento de esos lotes espera por el bloqueo compartido de
+  la FK sobre la fila del lote. `LotesConStock(…, bloquear)` bloquea solo los lotes con stock distinto de cero (los agotados no
+  pueden aportar unidades a una salida) y, si al leer aparece un lote que no se bloqueó, repite (máx. 5 veces).
+- **Faltante.** El chequeo de stock insuficiente de `RegistrarSalida` suma los lotes ya leídos bajo bloqueo más los movimientos
+  sin lote (`StockSinLote`), en lugar de una lectura aparte del stock total.
+- **Reintento.** Si MySQL aborta la transacción más externa por **deadlock (1213)**, `EnTransaccion` la reejecuta hasta 3
+  veces con pausa corta + jitter (10 ms × intento + 0–20 ms); lo mismo si inventario no logra estabilizar los lotes
+  (`ErrOperacionConcurrente`, no implica esperar). Recién después devuelve 409 `operacion_concurrente` (mensaje genérico).
+  La **espera de bloqueo agotada (1205) no se reintenta** (3 × lock wait podría superar los 30 s del proxy del escritorio y
+  duplicar una venta offline): se traduce a 409 directo. Se traduce también si el rollback falla. El DSN fija
+  `innodb_lock_wait_timeout=10` por sesión (`platform/config`), así un 1205 responde en ~10 s. El aislamiento es un campo
+  explícito del `Transactor` (`NuevoTransactorMySQL`); SQLite no lo usa. Condición: el cuerpo de la transacción
+  no puede tener efectos fuera de la base ni acumular estado entre intentos (auditado; solo `RevertirSalidas` acumulaba
+  `repuestas` y ahora lo reinicia por intento).
+- **Sync del escritorio.** `operacion_concurrente` es transitorio: `RecibirVentas` corta el envío con error (el escritorio reintenta
+  la tanda, el registro es idempotente) y no marca la venta como rechazada.
+- **Supuestos revisados.** `binlog_format` debe ser `ROW` (default de MySQL 8; con `STATEMENT` InnoDB no admite escrituras en
+  `READ COMMITTED`). Catálogo y compras usan versión optimista (`UPDATE … WHERE version = ?`): no cambia. Ventas offline:
+  idempotencia por clave primaria: no cambia. Estadísticas lee en autocommit, sin transacción. `ObtenerParaEditar` ya serializa
+  por `FOR UPDATE` de la compra. Nadie en el repo depende de lecturas repetibles dentro de una transacción.
+- Cuándo revisarla: igual que antes, si aparecen 409 `operacion_concurrente` en los logs (ahora ya tras 3 intentos).

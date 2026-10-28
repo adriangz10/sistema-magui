@@ -49,6 +49,10 @@ func (s *Servicio) CopiaCatalogo(ctx context.Context) (CopiaCatalogo, error) {
 	return CopiaCatalogo{GeneradaEn: ahora, Productos: ps, Componentes: cs}, nil
 }
 
+// codigoConcurrente es el código de platform/db.ErrOperacionConcurrente (deadlock o espera de
+// bloqueo agotada). Se repite acá para no acoplar sync a la capa de plataforma.
+const codigoConcurrente = "operacion_concurrente"
+
 // RecibirVentas registra cada venta por separado: una venta rechazada no frena a las demás.
 // Si el servidor falla (ej. se cae la base) devuelve error y el escritorio reintenta todo
 // más tarde; como el registro es idempotente, las que ya entraron no se duplican.
@@ -65,6 +69,10 @@ func (s *Servicio) RecibirVentas(ctx context.Context, ventas []VentaOffline) (Re
 		case err == nil && yaExistia:
 			r.Estado = YaExistia
 		case err == nil:
+		case tipado && e.Codigo == codigoConcurrente:
+			// Transitorio (choque de bloqueos con otra operación, ya reintentado): no es un rechazo.
+			// Se corta el envío y el escritorio reintenta toda la tanda; el registro es idempotente.
+			return RespuestaEnvio{}, err
 		case tipado:
 			r.Estado, r.Error = Rechazada, &ErrorEnvio{Code: e.Codigo, Message: detalle(e)}
 		default:

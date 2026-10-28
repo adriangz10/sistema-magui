@@ -109,3 +109,14 @@ func TestAsignarFEFOVencidosAlFinal(t *testing.T) {
 		}
 	}
 }
+
+func TestTipoMovimientoValido(t *testing.T) {
+	for _, tp := range []TipoMovimiento{MovInicial, MovCompra, MovVenta, MovAnulacion, MovAjuste, MovEdicionCompra} {
+		if !tp.Valido() {
+			t.Errorf("%s debería ser válido", tp)
+		}
+	}
+	if TipoMovimiento("OTRO").Valido() || TipoMovimiento("").Valido() {
+		t.Error("tipos desconocidos no son válidos")
+	}
+}

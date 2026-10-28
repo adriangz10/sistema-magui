@@ -95,6 +95,18 @@ type ComandoAjuste struct {
 	Costo       *dinero.Dinero
 }
 
+// AjusteLoteCompra corrige un lote desde la edición de la compra que lo originó (US-001b):
+// una diferencia de cantidad (movimiento EDICION_COMPRA sobre el mismo lote) y el costo y
+// vencimiento nuevos (se actualizan en el lugar, sin movimiento, si cambiaron).
+type AjusteLoteCompra struct {
+	LoteID      string
+	Diferencia  int // positiva suma, negativa resta; 0 = sin movimiento
+	Costo       dinero.Dinero
+	Vencimiento *fecha.Fecha
+	CompraID    string
+	Nota        string
+}
+
 // EstadoVencimientos para filtrar la lista de vencimientos.
 type EstadoVencimientos string
 

@@ -5,6 +5,7 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"slices"
 	"strconv"
 	"strings"
 
@@ -95,21 +96,135 @@ func scanLote(s interface{ Scan(...any) error }) (domain.LoteStock, error) {
 	return l, nil
 }
 
-func (r Repositorio) ObtenerLote(ctx context.Context, id string) (domain.LoteStock, error) {
-	l, err := scanLote(db.Conn(ctx, r.DB).QueryRowContext(ctx, consultaLotes+` WHERE l.id = ? GROUP BY l.id`, id))
+// ObtenerLote lee el lote y su stock. Con bloquear toma la fila del lote FOR UPDATE (nadie puede
+// insertar movimientos de ese lote hasta el fin de la transacción: la FK toma un bloqueo compartido
+// sobre el lote) y recién entonces lee el stock. Las transacciones corren en READ COMMITTED, así
+// que esa lectura común ve lo último confirmado (ADR 0002).
+func (r Repositorio) ObtenerLote(ctx context.Context, id string, bloquear bool) (domain.LoteStock, error) {
+	conn := db.Conn(ctx, r.DB)
+	if bloquear {
+		var x string
+		err := conn.QueryRowContext(ctx, `SELECT id FROM lote WHERE id = ? FOR UPDATE`, id).Scan(&x)
+		if errors.Is(err, sql.ErrNoRows) {
+			return domain.LoteStock{}, domain.ErrLoteNoEncontrado
+		}
+		if err != nil {
+			return domain.LoteStock{}, err
+		}
+	}
+	l, err := scanLote(conn.QueryRowContext(ctx, consultaLotes+` WHERE l.id = ? GROUP BY l.id`, id))
 	if errors.Is(err, sql.ErrNoRows) {
 		return domain.LoteStock{}, domain.ErrLoteNoEncontrado
 	}
 	return l, err
 }
 
-func (r Repositorio) LotesConStock(ctx context.Context, productoID string) ([]domain.LoteStock, error) {
-	rows, err := db.Conn(ctx, r.DB).QueryContext(ctx, consultaLotes+`
-		WHERE l.producto_id = ? GROUP BY l.id HAVING stock <> 0
-		ORDER BY l.fecha_vencimiento IS NULL, l.fecha_vencimiento, l.created_at`, productoID)
+// idsLotesConStock devuelve (sin bloquear) los lotes del producto con stock distinto de cero.
+// Los agotados no hace falta bloquearlos: ninguna salida puede tomar unidades de ellos.
+func (r Repositorio) idsLotesConStock(ctx context.Context, productoID string) ([]string, error) {
+	rows, err := db.Conn(ctx, r.DB).QueryContext(ctx, `
+		SELECT l.id FROM lote l JOIN movimiento_stock m ON m.lote_id = l.id
+		WHERE l.producto_id = ? GROUP BY l.id HAVING SUM(m.cantidad) <> 0`, productoID)
 	if err != nil {
 		return nil, err
 	}
+	return leerIDs(rows)
+}
+
+func leerIDs(rows *sql.Rows) ([]string, error) {
+	defer rows.Close()
+	var ids []string
+	for rows.Next() {
+		var id string
+		if err := rows.Scan(&id); err != nil {
+			return nil, err
+		}
+		ids = append(ids, id)
+	}
+	return ids, rows.Err()
+}
+
+// bloquearIDs toma FOR UPDATE sobre los lotes indicados, siempre ordenados por id y con la clave
+// primaria como único criterio (orden de bloqueo fijo: evita deadlocks entre operaciones).
+func bloquearIDs(ctx context.Context, conn db.Ejecutor, ids []string) error {
+	if len(ids) == 0 {
+		return nil
+	}
+	ordenados := slices.Clone(ids)
+	slices.Sort(ordenados)
+	args := make([]any, len(ordenados))
+	for i, id := range ordenados {
+		args[i] = id
+	}
+	rows, err := conn.QueryContext(ctx, `SELECT id FROM lote WHERE id IN (`+marcas(len(args))+`) ORDER BY id FOR UPDATE`, args...)
+	if err != nil {
+		return err
+	}
+	return rows.Close()
+}
+
+// BloquearLotesDeProducto toma FOR UPDATE sobre los lotes con stock del producto, ordenados por id.
+func (r Repositorio) BloquearLotesDeProducto(ctx context.Context, productoID string) error {
+	ids, err := r.idsLotesConStock(ctx, productoID)
+	if err != nil {
+		return err
+	}
+	return bloquearIDs(ctx, db.Conn(ctx, r.DB), ids)
+}
+
+// intentosEstabilizar acota el ciclo de LotesConStock: un lote que pasó de stock 0 a distinto de
+// cero entre la resolución de ids y la lectura se bloquea y se vuelve a leer.
+const intentosEstabilizar = 5
+
+func (r Repositorio) LotesConStock(ctx context.Context, productoID string, bloquear bool) ([]domain.LoteStock, error) {
+	conn := db.Conn(ctx, r.DB)
+	consulta := consultaLotes + `
+		WHERE l.producto_id = ? GROUP BY l.id HAVING stock <> 0
+		ORDER BY l.fecha_vencimiento IS NULL, l.fecha_vencimiento, l.created_at`
+	if !bloquear {
+		rows, err := conn.QueryContext(ctx, consulta, productoID)
+		if err != nil {
+			return nil, err
+		}
+		return scanLotes(rows)
+	}
+	bloqueados := map[string]bool{}
+	for range intentosEstabilizar {
+		ids, err := r.idsLotesConStock(ctx, productoID)
+		if err != nil {
+			return nil, err
+		}
+		if err := bloquearIDs(ctx, conn, ids); err != nil {
+			return nil, err
+		}
+		for _, id := range ids {
+			bloqueados[id] = true
+		}
+		rows, err := conn.QueryContext(ctx, consulta, productoID)
+		if err != nil {
+			return nil, err
+		}
+		lotes, err := scanLotes(rows)
+		if err != nil {
+			return nil, err
+		}
+		if todosBloqueados(lotes, bloqueados) {
+			return lotes, nil
+		}
+	}
+	return nil, db.ErrOperacionConcurrente
+}
+
+func todosBloqueados(lotes []domain.LoteStock, bloqueados map[string]bool) bool {
+	for _, l := range lotes {
+		if !bloqueados[l.ID] {
+			return false
+		}
+	}
+	return true
+}
+
+func scanLotes(rows *sql.Rows) ([]domain.LoteStock, error) {
 	defer rows.Close()
 	var out []domain.LoteStock
 	for rows.Next() {
@@ -122,10 +237,68 @@ func (r Repositorio) LotesConStock(ctx context.Context, productoID string) ([]do
 	return out, rows.Err()
 }
 
+func marcas(n int) string { return strings.TrimSuffix(strings.Repeat("?, ", n), ", ") }
+
+// LotesPorCompraItem devuelve los lotes de los renglones de compra. Con bloquear, primero resuelve
+// los ids de lote (la relación renglón-lote no cambia), los bloquea ordenados por id y recién
+// entonces lee el stock (READ COMMITTED: ve lo último confirmado).
+func (r Repositorio) LotesPorCompraItem(ctx context.Context, itemIDs []string, bloquear bool) ([]domain.LoteStock, error) {
+	if len(itemIDs) == 0 {
+		return nil, nil
+	}
+	conn := db.Conn(ctx, r.DB)
+	args := make([]any, len(itemIDs))
+	for i, id := range itemIDs {
+		args[i] = id
+	}
+	if bloquear {
+		ids, err := idsDeLotes(ctx, conn, itemIDs, args)
+		if err != nil {
+			return nil, err
+		}
+		if err := bloquearIDs(ctx, conn, ids); err != nil {
+			return nil, err
+		}
+	}
+	rows, err := conn.QueryContext(ctx, consultaLotes+` WHERE l.compra_item_id IN (`+marcas(len(itemIDs))+`) GROUP BY l.id ORDER BY l.id`, args...)
+	if err != nil {
+		return nil, err
+	}
+	return scanLotes(rows)
+}
+
+func idsDeLotes(ctx context.Context, conn db.Ejecutor, itemIDs []string, args []any) ([]string, error) {
+	rows, err := conn.QueryContext(ctx, `SELECT id FROM lote WHERE compra_item_id IN (`+marcas(len(itemIDs))+`)`, args...)
+	if err != nil {
+		return nil, err
+	}
+	return leerIDs(rows)
+}
+
+func (r Repositorio) ActualizarLote(ctx context.Context, id string, costo *dinero.Dinero, vencimiento *fecha.Fecha) error {
+	var c any
+	if costo != nil {
+		c = costo.String()
+	}
+	var v any
+	if vencimiento != nil && !vencimiento.IsZero() {
+		v = *vencimiento
+	}
+	_, err := db.Conn(ctx, r.DB).ExecContext(ctx, `UPDATE lote SET costo_unitario = ?, fecha_vencimiento = ? WHERE id = ?`, c, v, id)
+	return err
+}
+
 func (r Repositorio) StockProducto(ctx context.Context, productoID string) (int, error) {
 	var n int
 	err := db.Conn(ctx, r.DB).QueryRowContext(ctx,
 		`SELECT COALESCE(SUM(cantidad), 0) FROM movimiento_stock WHERE producto_id = ?`, productoID).Scan(&n)
+	return n, err
+}
+
+func (r Repositorio) StockSinLote(ctx context.Context, productoID string) (int, error) {
+	var n int
+	err := db.Conn(ctx, r.DB).QueryRowContext(ctx,
+		`SELECT COALESCE(SUM(cantidad), 0) FROM movimiento_stock WHERE producto_id = ? AND lote_id IS NULL`, productoID).Scan(&n)
 	return n, err
 }
 

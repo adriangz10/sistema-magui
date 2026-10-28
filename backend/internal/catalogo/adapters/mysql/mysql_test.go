@@ -52,7 +52,7 @@ func baseTemporal(t *testing.T) *sql.DB {
 func servicio(conn *sql.DB) *application.Servicio {
 	return application.NuevoServicio(application.Dependencias{
 		Empresas: Empresas{DB: conn}, Categorias: Categorias{DB: conn}, Productos: Productos{DB: conn},
-		Tx: db.Transactor{DB: conn}, IDs: id.UUIDv7{}, Reloj: reloj.Sistema{},
+		Tx: db.NuevoTransactorMySQL(conn), IDs: id.UUIDv7{}, Reloj: reloj.Sistema{},
 	})
 }
 

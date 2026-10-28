@@ -25,7 +25,7 @@ func NuevoModuloMySQL(conn *sql.DB, cat *catalogo.Servicio, log *slog.Logger) *M
 	svc := application.NuevoServicio(application.Dependencias{
 		Repo:      mysql.Repositorio{DB: conn},
 		Productos: enlace.Productos{Catalogo: cat},
-		Tx:        db.Transactor{DB: conn},
+		Tx:        db.NuevoTransactorMySQL(conn),
 		IDs:       id.UUIDv7{},
 		Reloj:     reloj.Sistema{},
 	})

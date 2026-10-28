@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"magui/internal/inventario/domain"
+	"magui/internal/kernel/dinero"
 	"magui/internal/kernel/errores"
 	"magui/internal/kernel/fecha"
 	"magui/internal/kernel/id"
@@ -99,15 +100,21 @@ func (s *Servicio) RegistrarSalida(ctx context.Context, sal Salida) ([]domain.As
 		if _, err := s.productoConStock(ctx, sal.ProductoID); err != nil {
 			return err
 		}
-		lotes, err := s.repo.LotesConStock(ctx, sal.ProductoID)
+		// Lectura bloqueante: serializa las salidas del producto y evita dejar un lote en negativo
+		// por una edición de compra o una venta simultánea (ADR 0002).
+		lotes, err := s.repo.LotesConStock(ctx, sal.ProductoID, true)
 		if err != nil {
 			return err
 		}
 		asignaciones = domain.AsignarFEFO(lotes, sal.Cantidad, s.hoy())
 		if !sal.PermitirNegativo && asignaciones[len(asignaciones)-1].LoteID == nil {
-			stock, err := s.repo.StockProducto(ctx, sal.ProductoID)
+			// Stock disponible = lotes leídos bajo bloqueo + movimientos sin lote (ventas offline).
+			stock, err := s.repo.StockSinLote(ctx, sal.ProductoID)
 			if err != nil {
 				return err
+			}
+			for _, l := range lotes {
+				stock += l.Stock
 			}
 			if stock < sal.Cantidad {
 				return domain.ErrStockInsuficiente(max(stock, 0))
@@ -134,6 +141,7 @@ func (s *Servicio) RegistrarSalida(ctx context.Context, sal Salida) ([]domain.As
 func (s *Servicio) RevertirSalidas(ctx context.Context, referenciaID string, tipoOriginal domain.TipoMovimiento, nota string) (int, error) {
 	repuestas := 0
 	err := s.tx.EnTransaccion(ctx, func(ctx context.Context) error {
+		repuestas = 0 // la transacción puede reintentarse: no acumular entre intentos
 		previas, err := s.repo.MovimientosPorReferencia(ctx, referenciaID, domain.MovAnulacion)
 		if err != nil || len(previas) > 0 {
 			return err
@@ -186,7 +194,11 @@ func (s *Servicio) AjustarStock(ctx context.Context, cmd ComandoAjuste) (StockPr
 }
 
 func (s *Servicio) ajustarLote(ctx context.Context, cmd ComandoAjuste, nota string) error {
-	lote, err := s.repo.ObtenerLote(ctx, cmd.LoteID)
+	// Bloquea los lotes del producto y lee el stock del lote de forma bloqueante (ADR 0002).
+	if err := s.repo.BloquearLotesDeProducto(ctx, cmd.ProductoID); err != nil {
+		return err
+	}
+	lote, err := s.repo.ObtenerLote(ctx, cmd.LoteID, true)
 	if err != nil {
 		return err
 	}
@@ -202,6 +214,64 @@ func (s *Servicio) ajustarLote(ctx context.Context, cmd ComandoAjuste, nota stri
 	}})
 }
 
+// LotesDeCompra devuelve los lotes (con su stock actual) de los renglones de compra indicados.
+// Con bloquear los toma con FOR UPDATE y lee el stock de forma bloqueante: lo usa la edición de
+// una compra para decidir sobre el stock real (ADR 0002).
+func (s *Servicio) LotesDeCompra(ctx context.Context, itemIDs []string, bloquear bool) ([]domain.LoteStock, error) {
+	if len(itemIDs) == 0 {
+		return nil, nil
+	}
+	return s.repo.LotesPorCompraItem(ctx, itemIDs, bloquear)
+}
+
+// AjustarLoteDeCompra aplica a un lote una corrección que viene de editar su compra: un movimiento
+// EDICION_COMPRA por la diferencia de cantidad (nunca deja el lote en negativo) y, si cambiaron,
+// el costo y el vencimiento en el lugar. Las ventas ya hechas no se tocan.
+func (s *Servicio) AjustarLoteDeCompra(ctx context.Context, a AjusteLoteCompra) error {
+	return s.tx.EnTransaccion(ctx, func(ctx context.Context) error {
+		lote, err := s.repo.ObtenerLote(ctx, a.LoteID, true)
+		if err != nil {
+			return err
+		}
+		if lote.Stock+a.Diferencia < 0 {
+			return domain.ErrStockInsuficiente(max(lote.Stock, 0))
+		}
+		if a.Diferencia != 0 {
+			ref := a.CompraID
+			err := s.repo.RegistrarMovimientos(ctx, []domain.Movimiento{{
+				ID: s.ids.Nuevo(), ProductoID: lote.ProductoID, LoteID: &lote.ID, Cantidad: a.Diferencia,
+				Tipo: domain.MovEdicionCompra, ReferenciaID: &ref, Nota: strings.TrimSpace(a.Nota), Fecha: s.reloj.Ahora(),
+			}})
+			if err != nil {
+				return err
+			}
+		}
+		venc := a.Vencimiento
+		if venc != nil && venc.IsZero() {
+			venc = nil
+		}
+		costo := a.Costo
+		if igualCosto(lote.Costo, &costo) && igualFecha(lote.Vencimiento, venc) {
+			return nil
+		}
+		return s.repo.ActualizarLote(ctx, lote.ID, &costo, venc)
+	})
+}
+
+func igualCosto(a, b *dinero.Dinero) bool {
+	if a == nil || b == nil {
+		return a == b
+	}
+	return *a == *b
+}
+
+func igualFecha(a, b *fecha.Fecha) bool {
+	if a == nil || b == nil {
+		return a == b
+	}
+	return a.String() == b.String()
+}
+
 // StockDeProducto devuelve el stock total y el detalle por lote con su estado de vencimiento.
 func (s *Servicio) StockDeProducto(ctx context.Context, productoID string) (StockProductoDTO, error) {
 	p, err := s.productoConStock(ctx, productoID)
@@ -212,7 +282,7 @@ func (s *Servicio) StockDeProducto(ctx context.Context, productoID string) (Stoc
 	if err != nil {
 		return StockProductoDTO{}, err
 	}
-	lotes, err := s.repo.LotesConStock(ctx, productoID)
+	lotes, err := s.repo.LotesConStock(ctx, productoID, false)
 	if err != nil {
 		return StockProductoDTO{}, err
 	}

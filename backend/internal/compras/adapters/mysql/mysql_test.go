@@ -264,7 +264,7 @@ func TestEditarCabeceraCompraMySQL(t *testing.T) {
 	// Todo o nada: si falla la auditoría, la compra queda como estaba (transacción real).
 	falla := comapp.NuevoServicio(comapp.Dependencias{
 		Repo: repoFallaEdicion{repo}, Catalogo: comenlaces.Catalogo{Svc: cat}, Inventario: comenlaces.Inventario{Svc: inv},
-		Tx: db.Transactor{DB: conn}, IDs: id.UUIDv7{}, Reloj: reloj.Sistema{}})
+		Tx: db.NuevoTransactorMySQL(conn), IDs: id.UUIDv7{}, Reloj: reloj.Sistema{}})
 	if _, err := falla.EditarCompra(ctx, comapp.ComandoEditarCompra{ID: c.ID, Version: 3, Fecha: comapp.FechaEditada{Dia: &diaNuevo}, Notas: "se pierde"}); err == nil {
 		t.Fatal("debería fallar la auditoría")
 	}

@@ -85,8 +85,8 @@ func TestEditarCompraErrores(t *testing.T) {
 	}
 	it := base
 	it.Items = &[]ItemEdicionCmd{}
-	if _, err := s.EditarCompra(ctx, it); !errors.Is(err, domain.ErrRenglonesNoEditables) {
-		t.Errorf("items: %v", err)
+	if ee, _ := errores.Como(func() error { _, err := s.EditarCompra(ctx, it); return err }()); ee == nil || ee.Campos["items"] == "" {
+		t.Errorf("items vacío debería ser datos_invalidos")
 	}
 	f := base
 	f.Fecha = dia(t, "2026-11-30")

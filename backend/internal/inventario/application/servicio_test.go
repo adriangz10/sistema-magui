@@ -22,6 +22,10 @@ type repoMem struct {
 	lotes map[string]domain.Lote
 	movs  []domain.Movimiento
 	dias  int
+	// Bloqueos pedidos (ADR 0002): el fake no bloquea, solo cuenta que se pidió la lectura bloqueante.
+	bloqueantes int
+	// lecturas del stock fuera de los lotes (el chequeo de faltante usa lotes bloqueados + sin lote).
+	lecturasSinLote int
 }
 
 func (r *repoMem) CrearLote(_ context.Context, l domain.Lote) error { r.lotes[l.ID] = l; return nil }
@@ -34,7 +38,10 @@ func (r *repoMem) stockLote(id string) int {
 	}
 	return n
 }
-func (r *repoMem) ObtenerLote(_ context.Context, id string) (domain.LoteStock, error) {
+func (r *repoMem) ObtenerLote(_ context.Context, id string, bloquear bool) (domain.LoteStock, error) {
+	if bloquear {
+		r.bloqueantes++
+	}
 	l, ok := r.lotes[id]
 	if !ok {
 		return domain.LoteStock{}, domain.ErrLoteNoEncontrado
@@ -54,7 +61,31 @@ func (r *repoMem) MovimientosPorReferencia(_ context.Context, ref string, tipo d
 	}
 	return out, nil
 }
-func (r *repoMem) LotesConStock(_ context.Context, p string) ([]domain.LoteStock, error) {
+func (r *repoMem) BloquearLotesDeProducto(context.Context, string) error { r.bloqueantes++; return nil }
+func (r *repoMem) LotesPorCompraItem(_ context.Context, ids []string, bloquear bool) ([]domain.LoteStock, error) {
+	if bloquear {
+		r.bloqueantes++
+	}
+	var out []domain.LoteStock
+	for _, l := range r.lotes {
+		for _, id := range ids {
+			if l.CompraItemID != nil && *l.CompraItemID == id {
+				out = append(out, domain.LoteStock{Lote: l, Stock: r.stockLote(l.ID)})
+			}
+		}
+	}
+	return out, nil
+}
+func (r *repoMem) ActualizarLote(_ context.Context, id string, c *dinero.Dinero, v *fecha.Fecha) error {
+	l := r.lotes[id]
+	l.Costo, l.Vencimiento = c, v
+	r.lotes[id] = l
+	return nil
+}
+func (r *repoMem) LotesConStock(_ context.Context, p string, bloquear bool) ([]domain.LoteStock, error) {
+	if bloquear {
+		r.bloqueantes++
+	}
 	var out []domain.LoteStock
 	for _, l := range r.lotes {
 		if s := r.stockLote(l.ID); l.ProductoID == p && s != 0 {
@@ -67,6 +98,16 @@ func (r *repoMem) StockProducto(_ context.Context, p string) (int, error) {
 	n := 0
 	for _, m := range r.movs {
 		if m.ProductoID == p {
+			n += m.Cantidad
+		}
+	}
+	return n, nil
+}
+func (r *repoMem) StockSinLote(_ context.Context, p string) (int, error) {
+	r.lecturasSinLote++
+	n := 0
+	for _, m := range r.movs {
+		if m.ProductoID == p && m.LoteID == nil {
 			n += m.Cantidad
 		}
 	}
@@ -289,5 +330,150 @@ func TestRevertirSalidas(t *testing.T) {
 	// Idempotente
 	if n, _ := s.RevertirSalidas(ctx, ref, domain.MovVenta, "otra vez"); n != 0 {
 		t.Errorf("segunda reversión repuso %d", n)
+	}
+}
+
+// ADR 0002: las salidas y los ajustes por lote leen el stock con lectura bloqueante.
+func TestSalidasYAjustesUsanLecturaBloqueante(t *testing.T) {
+	s, repo := entorno()
+	st, _ := s.AjustarStock(ctx, ComandoAjuste{ProductoID: "kaiak", Cantidad: 5, Motivo: "Conteo"})
+	repo.bloqueantes = 0
+	if _, err := s.RegistrarSalida(ctx, Salida{ProductoID: "kaiak", Cantidad: 1, Tipo: domain.MovVenta}); err != nil {
+		t.Fatal(err)
+	}
+	if repo.bloqueantes == 0 {
+		t.Error("RegistrarSalida debería bloquear los lotes del producto")
+	}
+	repo.bloqueantes = 0
+	if _, err := s.AjustarStock(ctx, ComandoAjuste{ProductoID: "kaiak", Cantidad: -1, Motivo: "Rotura", LoteID: st.Lotes[0].ID}); err != nil {
+		t.Fatal(err)
+	}
+	if repo.bloqueantes < 2 {
+		t.Errorf("ajustarLote debería bloquear el producto y leer el lote bloqueando (%d)", repo.bloqueantes)
+	}
+	repo.bloqueantes = 0
+	_, _ = s.StockDeProducto(ctx, "kaiak")
+	if repo.bloqueantes != 0 {
+		t.Error("las consultas de solo lectura no deberían bloquear")
+	}
+}
+
+func lotePorCompra(t *testing.T, s *Servicio, repo *repoMem, itemID string, cant int, costoIni string, venc *fecha.Fecha) string {
+	t.Helper()
+	id, err := s.RegistrarIngreso(ctx, Ingreso{ProductoID: "kaiak", Cantidad: cant, Costo: costo(costoIni), Vencimiento: venc,
+		CompraItemID: &itemID, Tipo: domain.MovCompra})
+	if err != nil {
+		t.Fatal(err)
+	}
+	return id
+}
+
+func TestAjustarLoteDeCompra(t *testing.T) {
+	s, repo := entorno()
+	lote := lotePorCompra(t, s, repo, "item-1", 4, "100", f("2027-09-30"))
+	n0 := len(repo.movs)
+
+	// Sube 2: movimiento EDICION_COMPRA +2 en el mismo lote con la compra como referencia.
+	err := s.AjustarLoteDeCompra(ctx, AjusteLoteCompra{LoteID: lote, Diferencia: 2, Costo: *costo("100"), Vencimiento: f("2027-09-30"), CompraID: "c1", Nota: "Edición de compra del 20/10/2026"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	m := repo.movs[n0]
+	if len(repo.movs) != n0+1 || m.Cantidad != 2 || m.Tipo != domain.MovEdicionCompra || *m.LoteID != lote || *m.ReferenciaID != "c1" || m.Nota == "" {
+		t.Errorf("movimiento = %+v", repo.movs[n0:])
+	}
+	if repo.stockLote(lote) != 6 {
+		t.Errorf("stock = %d", repo.stockLote(lote))
+	}
+
+	// Venden 5 (queda 1): bajar 2 deja el lote negativo -> rechazado y sin movimiento; bajar 1 hasta 0 se acepta.
+	_, _ = s.RegistrarSalida(ctx, Salida{ProductoID: "kaiak", Cantidad: 5, Tipo: domain.MovVenta})
+	n1 := len(repo.movs)
+	err = s.AjustarLoteDeCompra(ctx, AjusteLoteCompra{LoteID: lote, Diferencia: -2, Costo: *costo("100"), Vencimiento: f("2027-09-30"), CompraID: "c1"})
+	if e, ok := errores.Como(err); !ok || e.Codigo != "stock_insuficiente" || len(repo.movs) != n1 {
+		t.Fatalf("por debajo del consumo: %v", err)
+	}
+	if err := s.AjustarLoteDeCompra(ctx, AjusteLoteCompra{LoteID: lote, Diferencia: -1, Costo: *costo("100"), Vencimiento: f("2027-09-30"), CompraID: "c1"}); err != nil {
+		t.Fatal(err)
+	}
+	if repo.stockLote(lote) != 0 {
+		t.Errorf("stock = %d", repo.stockLote(lote))
+	}
+	if err := s.AjustarLoteDeCompra(ctx, AjusteLoteCompra{LoteID: "nope", Diferencia: 1}); !errors.Is(err, domain.ErrLoteNoEncontrado) {
+		t.Errorf("lote inexistente: %v", err)
+	}
+}
+
+func TestAjustarLoteDeCompraCostoYVencimientoSinMovimiento(t *testing.T) {
+	s, repo := entorno()
+	lote := lotePorCompra(t, s, repo, "item-1", 4, "100", f("2027-09-30"))
+	n0 := len(repo.movs)
+	// Diferencia 0: solo se actualiza el lote en el lugar.
+	if err := s.AjustarLoteDeCompra(ctx, AjusteLoteCompra{LoteID: lote, Costo: *costo("120"), Vencimiento: f("2027-12-31"), CompraID: "c1"}); err != nil {
+		t.Fatal(err)
+	}
+	l := repo.lotes[lote]
+	if len(repo.movs) != n0 || l.Costo.String() != "120.00" || l.Vencimiento.String() != "2027-12-31" {
+		t.Errorf("lote = %+v movs=%d", l, len(repo.movs)-n0)
+	}
+	// Vencimiento nil = el lote queda sin vencimiento (SIN_FECHA).
+	if err := s.AjustarLoteDeCompra(ctx, AjusteLoteCompra{LoteID: lote, Costo: *costo("120"), Vencimiento: nil, CompraID: "c1"}); err != nil {
+		t.Fatal(err)
+	}
+	if repo.lotes[lote].Vencimiento != nil {
+		t.Errorf("vencimiento = %v", repo.lotes[lote].Vencimiento)
+	}
+	// Sin cambios de nada: no escribe.
+	repo.lotes[lote] = domain.Lote{ID: lote, ProductoID: "kaiak", Costo: costo("120")}
+	if err := s.AjustarLoteDeCompra(ctx, AjusteLoteCompra{LoteID: lote, Costo: *costo("120"), CompraID: "c1"}); err != nil || len(repo.movs) != n0 {
+		t.Errorf("sin cambios: %v", err)
+	}
+}
+
+func TestLotesDeCompra(t *testing.T) {
+	s, repo := entorno()
+	lotePorCompra(t, s, repo, "item-1", 4, "100", nil)
+	lotePorCompra(t, s, repo, "item-2", 2, "50", nil)
+	ls, err := s.LotesDeCompra(ctx, []string{"item-1"}, true)
+	if err != nil || len(ls) != 1 || ls[0].Stock != 4 || repo.bloqueantes == 0 {
+		t.Errorf("lotes = %+v %v", ls, err)
+	}
+	if ls, _ := s.LotesDeCompra(ctx, nil, false); len(ls) != 0 {
+		t.Error("sin ids no devuelve nada")
+	}
+}
+
+// El chequeo de faltante usa los lotes ya leídos bajo bloqueo más los movimientos sin lote,
+// no una lectura aparte del stock total (ADR 0002).
+func TestFaltanteSeCalculaConLosLotesBloqueados(t *testing.T) {
+	s, repo := entorno()
+	_, _ = s.RegistrarIngreso(ctx, Ingreso{ProductoID: "kaiak", Cantidad: 1, Tipo: domain.MovCompra})
+	// Venta offline sin stock: deja un movimiento sin lote de -1 (stock total del producto 0).
+	if _, err := s.RegistrarSalida(ctx, Salida{ProductoID: "kaiak", Cantidad: 2, Tipo: domain.MovVenta, PermitirNegativo: true}); err != nil {
+		t.Fatal(err)
+	}
+	repo.lecturasSinLote = 0
+	// Hay 0 en total (lote 0 + sin lote -1 + ...): pedir 1 más debe fallar con disponible 0.
+	_, _ = s.RegistrarIngreso(ctx, Ingreso{ProductoID: "kaiak", Cantidad: 1, Tipo: domain.MovCompra})
+	_, err := s.RegistrarSalida(ctx, Salida{ProductoID: "kaiak", Cantidad: 2, Tipo: domain.MovVenta})
+	e, ok := errores.Como(err)
+	if !ok || e.Codigo != "stock_insuficiente" || e.Mensaje != "No hay stock suficiente (disponible: 0)" {
+		t.Fatalf("err = %v", err)
+	}
+	if repo.lecturasSinLote == 0 {
+		t.Error("debería sumar los movimientos sin lote")
+	}
+	// Lote con 1 unidad y un -1 sin lote (offline previo): el total es 0, no se puede vender 1.
+	s, repo = entorno()
+	_, _ = s.RegistrarIngreso(ctx, Ingreso{ProductoID: "kaiak", Cantidad: 1, Tipo: domain.MovCompra})
+	repo.movs = append(repo.movs, domain.Movimiento{ID: "x", ProductoID: "kaiak", Cantidad: -1, Tipo: domain.MovVenta})
+	if _, err := s.RegistrarSalida(ctx, Salida{ProductoID: "kaiak", Cantidad: 2, Tipo: domain.MovVenta}); err == nil {
+		t.Error("debería faltar stock")
+	}
+	// Con stock suficiente en lotes no consulta nada aparte.
+	s, repo = entorno()
+	_, _ = s.RegistrarIngreso(ctx, Ingreso{ProductoID: "kaiak", Cantidad: 3, Tipo: domain.MovCompra})
+	if _, err := s.RegistrarSalida(ctx, Salida{ProductoID: "kaiak", Cantidad: 2, Tipo: domain.MovVenta}); err != nil || repo.lecturasSinLote != 0 {
+		t.Errorf("err=%v lecturas=%d", err, repo.lecturasSinLote)
 	}
 }
