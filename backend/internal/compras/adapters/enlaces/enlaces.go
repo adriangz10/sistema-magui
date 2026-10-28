@@ -23,7 +23,7 @@ func (c Catalogo) Productos(ctx context.Context, ids []string) (map[string]appli
 	}
 	out := make(map[string]application.ProductoCompra, len(info))
 	for id, p := range info {
-		out[id] = application.ProductoCompra{Nombre: p.Nombre, Combo: p.Tipo == catdomain.TipoCombo, Costo: p.Costo, PrecioVenta: p.PrecioVenta}
+		out[id] = application.ProductoCompra{Nombre: p.Nombre, Combo: p.Tipo == catdomain.TipoCombo, Inactivo: !p.Activo, Costo: p.Costo, PrecioVenta: p.PrecioVenta}
 	}
 	return out, nil
 }

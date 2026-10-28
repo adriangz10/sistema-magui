@@ -309,3 +309,18 @@ func TestRegistrarCompraValidaciones(t *testing.T) {
 		t.Errorf("compra inexistente: %v", err)
 	}
 }
+
+func TestRegistrarCompraRechazaProductoInactivo(t *testing.T) {
+	s, repo, cat, _ := entorno()
+	cat.productos["viejo"] = ProductoCompra{Nombre: "Viejo", Inactivo: true}
+	_, err := s.RegistrarCompra(ctx, ComandoCompra{Items: []ItemCmd{
+		{ProductoID: "kaiak", Cantidad: 1, CostoUnitario: d("1")},
+		{ProductoID: "viejo", Cantidad: 1, CostoUnitario: d("1")}}})
+	ee, ok := errores.Como(err)
+	if !ok || ee.Codigo != "producto_inactivo" || ee.Tipo != errores.TipoInvalido || ee.Campos["items[1].productoId"] == "" {
+		t.Fatalf("err = %v", err)
+	}
+	if len(repo.compras) != 0 {
+		t.Error("no debería guardarse la compra")
+	}
+}

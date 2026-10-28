@@ -156,7 +156,7 @@ func (s *Servicio) productosDeEdicion(ctx context.Context, actual domain.Compra,
 	if err != nil {
 		return nil, err
 	}
-	for _, r := range pedidos {
+	for i, r := range pedidos {
 		if strings.TrimSpace(r.ID) != "" {
 			continue
 		}
@@ -166,6 +166,9 @@ func (s *Servicio) productosDeEdicion(ctx context.Context, actual domain.Compra,
 		}
 		if p.Combo {
 			return nil, domain.ErrProductoNoComprable(p.Nombre)
+		}
+		if p.Inactivo {
+			return nil, domain.ErrProductoInactivo(p.Nombre, i)
 		}
 	}
 	return prods, nil

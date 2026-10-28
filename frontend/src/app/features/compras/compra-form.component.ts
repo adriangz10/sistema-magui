@@ -379,6 +379,8 @@ export class CompraFormComponent {
         this.errores.set({ empresaId: 'La empresa elegida ya no existe' });
       } else if (err.codigo === 'producto_no_comprable') {
         this.errores.set({ items: 'Un producto agregado es un combo: no se puede comprar, comprá sus productos' });
+      } else if (err.codigo === 'producto_inactivo') {
+        this.errores.set({ items: 'Un producto agregado está inactivo: quitalo o activalo en Productos' });
       } else if (err.codigo === 'producto_no_encontrado') {
         this.errores.set({ items: 'Un producto agregado ya no existe, quitalo e intentá de nuevo' });
       } else if (err.status === 422 && Object.keys(err.campos).length) {

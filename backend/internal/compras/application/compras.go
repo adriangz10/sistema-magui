@@ -53,7 +53,8 @@ type CompraReciente struct {
 type ProductoCompra struct {
 	Nombre      string
 	Combo       bool
-	Costo       *dinero.Dinero // último costo actual del producto
+	Inactivo    bool           // producto desactivado en el catálogo (el cero es activo)
+	Costo      *dinero.Dinero // último costo actual del producto
 	PrecioVenta dinero.Dinero  // precio de venta actual
 }
 
@@ -288,13 +289,16 @@ func (s *Servicio) validarProductos(ctx context.Context, c domain.Compra) error 
 	if err != nil {
 		return err
 	}
-	for _, it := range c.Items {
+	for i, it := range c.Items {
 		p, ok := prods[it.ProductoID]
 		if !ok {
 			return domain.ErrProductoNoEncontrado
 		}
 		if p.Combo {
 			return domain.ErrProductoNoComprable(p.Nombre)
+		}
+		if p.Inactivo {
+			return domain.ErrProductoInactivo(p.Nombre, i)
 		}
 	}
 	return nil

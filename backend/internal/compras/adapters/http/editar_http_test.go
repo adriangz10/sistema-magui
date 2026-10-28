@@ -48,7 +48,7 @@ type cat struct{}
 func (cat) Productos(_ context.Context, ids []string) (map[string]application.ProductoCompra, error) {
 	out := map[string]application.ProductoCompra{}
 	for _, id := range ids {
-		out[id] = application.ProductoCompra{Nombre: "Kaiak", PrecioVenta: dinero.MustParse("62000")}
+		out[id] = application.ProductoCompra{Nombre: "Kaiak", Inactivo: id == "pinact", PrecioVenta: dinero.MustParse("62000")}
 	}
 	return out, nil
 }
@@ -112,6 +112,8 @@ func TestPutCompra(t *testing.T) {
 		{"campo del renglón", `{"fecha":"2026-10-20","version":1,"items":[{"id":"i1","productoId":"p1","cantidad":0,"costoUnitario":"100"}]}`, "items[0].cantidad", 422},
 		{"producto distinto", `{"fecha":"2026-10-20","version":1,"items":[{"id":"i1","productoId":"p2","cantidad":4,"costoUnitario":"100"}]}`, "items[0].productoId", 422},
 		{"renglón nuevo", `{"fecha":"2026-10-20","version":1,"items":[{"id":"i1","productoId":"p1","cantidad":4,"costoUnitario":"100"},{"productoId":"p1","cantidad":1,"costoUnitario":"1"}]}`, `"version":2`, 200},
+		{"renglón nuevo inactivo", `{"fecha":"2026-10-20","version":1,"items":[{"id":"i1","productoId":"p1","cantidad":4,"costoUnitario":"100"},{"productoId":"pinact","cantidad":1,"costoUnitario":"1"}]}`, "producto_inactivo", 422},
+		{"renglón nuevo inactivo con campo", `{"fecha":"2026-10-20","version":1,"items":[{"id":"i1","productoId":"p1","cantidad":4,"costoUnitario":"100"},{"productoId":"pinact","cantidad":1,"costoUnitario":"1"}]}`, "items[1].productoId", 422},
 		{"un solo renglón", `{"fecha":"2026-10-20","version":1,"items":[{"id":"i1","productoId":"p1","cantidad":4,"costoUnitario":"100"}]}`, "", 200},
 		{"fecha vacía", `{"version":1}`, "datos_invalidos", 422},
 	}

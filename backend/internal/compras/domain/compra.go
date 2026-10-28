@@ -134,6 +134,14 @@ func ErrRenglonSinLote(producto string) error {
 	return errores.Conflicto("renglon_sin_lote", "No se encontró el lote de «"+producto+"»: no se puede editar ese renglón. Avisá a soporte.")
 }
 
+// ErrProductoInactivo: no se puede cargar ni agregar a una compra un producto inactivo del catálogo
+// (los renglones existentes de productos desactivados después sí se pueden editar y quitar).
+func ErrProductoInactivo(nombre string, indice int) error {
+	e := errores.Invalido("producto_inactivo", "El producto «"+nombre+"» está inactivo: no se puede comprar")
+	e.Campos = map[string]string{fmt.Sprintf("items[%d].productoId", indice): "El producto está inactivo"}
+	return e
+}
+
 // ErrProductoNoComprable: los combos no se compran, se compran sus componentes.
 func ErrProductoNoComprable(nombre string) error {
 	return errores.Invalido("producto_no_comprable", "No se puede comprar un combo: "+nombre)

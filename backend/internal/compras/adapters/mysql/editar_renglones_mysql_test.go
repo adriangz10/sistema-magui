@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"log/slog"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -142,7 +143,7 @@ func TestEditarRenglonesMySQL(t *testing.T) {
 	}
 	hist := debe(e.cat.HistorialPrecios(ctx, e.kaiak.ID, pag))
 	if hist.Total != 2 || hist.Items[0].Origen != catdomain.OrigenCompra || hist.Items[0].PrecioNuevo.String() != "65000.00" ||
-		len(hist.Items[0].Motivo) < len("Edición de compra del ") || hist.Items[0].Motivo[:22] != "Edición de compra del " {
+		!strings.HasPrefix(hist.Items[0].Motivo, "Edición de compra del ") {
 		t.Errorf("historial = %+v", hist.Items)
 	}
 	if r.Items[0].PrecioVentaActual.String() != "65000.00" {

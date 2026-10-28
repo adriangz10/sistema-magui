@@ -13,6 +13,7 @@ RN-EC-09, RN-EC-10, RN-EC-13, RN-EC-14, RN-EC-15 a RN-EC-20, RN-EC-23, RN-EC-24 
   mensaje por renglón ("Ekos Jabón: ya salió 1 de las 10 unidades; no se puede quitar. Podés bajar la cantidad hasta 1").
 - RN-C-03: Un renglón agregado y quitado en la misma edición no genera lote ni movimientos.
 - RN-C-04: El recálculo del último costo (RN-EC-19) corre también cuando la edición solo cambia la fecha.
+- Actualización 2026-10-27 (cliente): el servidor rechaza productos inactivos al registrar una compra (`POST /compras`) y al agregar renglones nuevos en la edición (`PUT /compras/{id}`, renglones sin `id`) con 422 `producto_inactivo` y `fields` `items[i].productoId`. Los renglones existentes de productos desactivados después se siguen pudiendo editar y quitar.
 
 ## Criterios de aceptación
 ```gherkin

@@ -193,3 +193,31 @@ func TestCambiarFechaRecalculaUltimoCostoMySQL(t *testing.T) {
 		t.Errorf("tras volver: version %d costo %v", c3.Version, pk.Costo)
 	}
 }
+
+func TestProductoInactivoMySQL(t *testing.T) {
+	e := nuevoEntornoMySQL(t)
+	ctx := context.Background()
+	viejo := debe(e.cat.CrearProducto(ctx, catapp.ComandoProducto{Tipo: catdomain.TipoSimple, Datos: catdomain.DatosProducto{
+		SKU: "P9", Nombre: "Viejo", PrecioVenta: d("1000")}}))
+	c1 := e.registrar(t, nil)
+	debe(e.cat.CambiarEstadoProducto(ctx, viejo.ID, false))
+	// Alta con un inactivo: 422 producto_inactivo.
+	_, err := e.com.RegistrarCompra(ctx, comapp.ComandoCompra{Items: []comapp.ItemCmd{
+		{ProductoID: viejo.ID, Cantidad: 1, CostoUnitario: d("10")}}})
+	if ee, ok := errores.Como(err); !ok || ee.Codigo != "producto_inactivo" || ee.Campos["items[0].productoId"] == "" {
+		t.Fatalf("alta: %v", err)
+	}
+	// Agregar un inactivo en la edición: 422 y no cambia nada.
+	nuevo := comapp.ItemEdicionCmd{ProductoID: viejo.ID, Cantidad: 1, CostoUnitario: d("10")}
+	_, err = e.editarLista(c1, []comapp.ItemEdicionCmd{itemDe(c1, "Kaiak Clásico"), itemDe(c1, "Ekos Jabón"), nuevo})
+	if ee, ok := errores.Como(err); !ok || ee.Codigo != "producto_inactivo" || ee.Campos["items[2].productoId"] == "" {
+		t.Fatalf("edición: %v", err)
+	}
+	// Un renglón existente de un producto desactivado luego se puede editar.
+	debe(e.cat.CambiarEstadoProducto(ctx, e.jabon.ID, false))
+	j := itemDe(c1, "Ekos Jabón")
+	j.Cantidad = 11
+	if c2 := debe(e.editarLista(c1, []comapp.ItemEdicionCmd{itemDe(c1, "Kaiak Clásico"), j})); c2.Version != 2 {
+		t.Errorf("version = %d", c2.Version)
+	}
+}

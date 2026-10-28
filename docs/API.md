@@ -108,7 +108,7 @@ Estados de un lote: `VENCIDO`, `POR_VENCER` (dentro del plazo de aviso), `VIGENT
 |---|---|---|
 | GET | `/compras` | Paginado, de la más reciente. Filtros: `desde`, `hasta`, `empresaId`. Cada compra trae `version` y `editadaEn` |
 | GET | `/compras/{id}` | Detalle con renglones, `version`, `editadaEn` e historial de `ediciones` (ver "Editar una compra") |
-| POST | `/compras` | Registra la compra (ver abajo) |
+| POST | `/compras` | Registra la compra (ver abajo). Rechaza productos inactivos: 422 `producto_inactivo` con `fields` `items[i].productoId` (actualización 2026-10-27, cliente) |
 | PUT | `/compras/{id}` | Edita la compra (ver "Editar una compra") |
 
 ```json
@@ -194,6 +194,7 @@ Errores:
 | 409 | `operacion_concurrente` | Otra operación se cruzó con esta (ya se reintentó 3 veces): volver a intentar |
 | 422 | `datos_invalidos` | `fields`: `fecha`, `notas`, `motivo`, `origen`, `version`, `items`, `items[i].id`, `items[i].productoId`, `items[i].cantidad`, `items[i].costoUnitario`, `items[i].precioVentaNuevo`, `items[i].vencimiento` |
 | 422 | `producto_no_comprable` | Un renglón nuevo es un combo |
+| 422 | `producto_inactivo` | Un renglón nuevo es de un producto inactivo (`fields`: `items[i].productoId`). Los renglones existentes de productos desactivados después siguen editándose y quitándose |
 
 ```json
 // 409 compra_consumida

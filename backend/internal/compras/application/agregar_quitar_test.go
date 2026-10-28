@@ -370,3 +370,24 @@ func TestCambiarSoloFechaNoPisaCostoDeCatalogoSiSigueSiendoLaMasReciente(t *test
 		t.Errorf("no debería tocar el catálogo: %+v", e.cat.costos)
 	}
 }
+
+func TestAgregarProductoInactivoSeRechazaPeroElExistenteInactivoSeEdita(t *testing.T) {
+	e := nuevoB(t)
+	e.conChronos()
+	pc := e.cat.productos["chronos"]
+	pc.Inactivo = true
+	e.cat.productos["chronos"] = pc
+	_, err := e.editarLista(func(k, j ItemEdicionCmd) []ItemEdicionCmd { return []ItemEdicionCmd{k, j, chronos()} })
+	ee, ok := errores.Como(err)
+	if !ok || ee.Codigo != "producto_inactivo" || ee.Tipo != errores.TipoInvalido || ee.Campos["items[2].productoId"] == "" {
+		t.Fatalf("inactivo nuevo: %v", err)
+	}
+	nadaEscrito(t, e)
+	// Un renglón existente cuyo producto se desactivó después se puede editar.
+	k := e.cat.productos["kaiak"]
+	k.Inactivo = true
+	e.cat.productos["kaiak"] = k
+	if _, err := e.editarLista(func(k, j ItemEdicionCmd) []ItemEdicionCmd { k.Cantidad = 5; return []ItemEdicionCmd{k, j} }); err != nil {
+		t.Fatalf("editar existente inactivo: %v", err)
+	}
+}
