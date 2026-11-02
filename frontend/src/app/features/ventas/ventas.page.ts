@@ -4,6 +4,7 @@ import { firstValueFrom } from 'rxjs';
 import { ApiError } from '../../core/api/api-error';
 import { Pagina } from '../../core/api/modelos';
 import { EstadoVenta, FiltroVentas, METODOS, MetodoPago, VentaDetalle, VentaResumen, VentasApi } from '../../core/api/ventas.api';
+import { ImpresionTicketService } from '../../core/ticket/impresion-ticket.service';
 import { ToastService } from '../../core/ui/toast.service';
 import { DineroPipe } from '../../shared/formato/dinero';
 import { FechaPipe, hoyISO } from '../../shared/formato/fecha';
@@ -143,6 +144,9 @@ const NOMBRE_METODO: Record<MetodoPago, string> = { EFECTIVO: 'Efectivo', TRANSF
         @if (detalle()?.estado === 'CONFIRMADA') {
           <button type="button" class="btn-peligro mr-auto" (click)="pedirAnulacion()">Anular venta</button>
         }
+        @if (impresion.habilitado && detalle(); as d) {
+          <button type="button" class="btn-secundario" (click)="impresion.imprimir(d)">Imprimir ticket</button>
+        }
         <button type="button" class="btn-secundario" (click)="detalle.set(null)">Cerrar</button>
       </div>
     </app-modal>
@@ -155,6 +159,7 @@ const NOMBRE_METODO: Record<MetodoPago, string> = { EFECTIVO: 'Efectivo', TRANSF
   `,
 })
 export class VentasPage {
+  protected readonly impresion = inject(ImpresionTicketService);
   private readonly api = inject(VentasApi);
   private readonly toast = inject(ToastService);
 

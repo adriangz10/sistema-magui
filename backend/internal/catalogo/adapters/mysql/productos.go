@@ -251,7 +251,8 @@ const consultaResumen = `
 	              FROM combo_item ci LEFT JOIN v_stock_producto sc ON sc.producto_id = ci.producto_id
 	              WHERE ci.combo_id = p.id), 0)
 	            ELSE COALESCE(s.stock, 0) END AS stock,
-	       p.stock_minimo, p.activo, p.version, p.descripcion, p.mostrar_en_tienda, p.created_at, p.updated_at
+	       p.stock_minimo, p.activo, p.version, p.descripcion, p.mostrar_en_tienda, p.created_at, p.updated_at,
+	       CASE WHEN EXISTS (SELECT 1 FROM producto_imagen pi WHERE pi.producto_id = p.id) THEN p.imagen_version ELSE 0 END AS imagen_version
 	FROM producto p
 	LEFT JOIN empresa e ON e.id = p.empresa_id
 	LEFT JOIN (SELECT producto_id, SUM(cantidad) AS stock FROM movimiento_stock GROUP BY producto_id) s
@@ -262,7 +263,8 @@ func scanDetalle(s interface{ Scan(...any) error }) (application.ProductoDetalle
 	var tipo string
 	var costo sql.Null[dinero.Dinero]
 	err := s.Scan(&d.ID, &d.SKU, &d.CodigoBarras, &d.Nombre, &tipo, &d.EmpresaID, &d.Empresa, &d.PrecioVenta, &costo,
-		&d.Stock, &d.StockMinimo, &d.Activo, &d.Version, &d.Descripcion, &d.MostrarEnTienda, &d.CreatedAt, &d.UpdatedAt)
+		&d.Stock, &d.StockMinimo, &d.Activo, &d.Version, &d.Descripcion, &d.MostrarEnTienda, &d.CreatedAt, &d.UpdatedAt,
+		&d.ImagenVersion)
 	d.Tipo = domain.Tipo(tipo)
 	if costo.Valid {
 		d.Costo = &costo.V

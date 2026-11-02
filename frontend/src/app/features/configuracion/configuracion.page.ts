@@ -12,14 +12,18 @@ import { TemaService } from '../../core/ui/tema.service';
 import { ToastService } from '../../core/ui/toast.service';
 import { CampoComponent } from '../../shared/ui/campo.component';
 import { EncabezadoComponent } from '../../shared/ui/encabezado.component';
+import { LectorConfigComponent } from './lector-config.component';
+import { NegocioConfigComponent } from './negocio-config.component';
 
-/** Contraseña, aviso de vencimientos, apariencia y datos del sistema. */
+/** Negocio y ticket, lector de códigos, contraseña, vencimientos, apariencia y datos del sistema. */
 @Component({
   selector: 'app-configuracion',
-  imports: [FormsModule, CampoComponent, EncabezadoComponent],
+  imports: [FormsModule, CampoComponent, EncabezadoComponent, NegocioConfigComponent, LectorConfigComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <app-encabezado titulo="Configuración" />
+
+    <app-negocio-config class="mb-6 block" />
 
     <div class="grid items-start gap-6 lg:grid-cols-2">
       <section class="card p-5" aria-labelledby="titulo-clave">
@@ -43,6 +47,7 @@ import { EncabezadoComponent } from '../../shared/ui/encabezado.component';
       </section>
 
       <div class="space-y-6">
+        <app-lector-config />
         @if (!esEscritorio) {
         <section class="card p-5" aria-labelledby="titulo-instalar">
           <h2 id="titulo-instalar" class="font-semibold">App en este dispositivo</h2>
@@ -162,7 +167,7 @@ export class ConfiguracionPage {
 
   protected async instalar(): Promise<void> {
     if (await this.instalacion.instalar()) {
-      this.toast.exito('¡Listo! Magui quedó instalada en este dispositivo.');
+      this.toast.exito('¡Listo! La app quedó instalada en este dispositivo.');
     }
   }
 

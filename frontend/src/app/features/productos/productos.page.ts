@@ -14,6 +14,7 @@ import { ModalComponent } from '../../shared/ui/modal.component';
 import { TablaComponent } from '../../shared/ui/tabla.component';
 import { HistorialPreciosComponent } from './historial-precios.component';
 import { ProductoFormComponent } from './producto-form.component';
+import { ImagenProductoComponent } from '../../shared/ui/imagen-producto.component';
 
 type Filtro = Required<Pick<ConsultaProductos, 'q' | 'categoriaId' | 'empresaId' | 'tipo' | 'estado' | 'orden' | 'page'>> & { stockBajo: boolean };
 
@@ -22,7 +23,7 @@ const FILTRO_INICIAL: Filtro = { q: '', categoriaId: '', empresaId: '', tipo: ''
 /** Catálogo de productos y combos. */
 @Component({
   selector: 'app-productos',
-  imports: [FormsModule, LucideAngularModule, DineroPipe, CampoComponent, EncabezadoComponent, ModalComponent, TablaComponent,
+  imports: [FormsModule, LucideAngularModule, DineroPipe, CampoComponent, EncabezadoComponent, ModalComponent, TablaComponent, ImagenProductoComponent,
     ProductoFormComponent, HistorialPreciosComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
@@ -97,12 +98,17 @@ const FILTRO_INICIAL: Filtro = { q: '', categoriaId: '', empresaId: '', tipo: ''
           @for (p of pagina()?.items; track p.id) {
             <tr [class.opacity-60]="!p.activo">
               <td class="min-w-72">
-                <p class="font-medium">
-                  {{ p.nombre }}
-                  @if (p.tipo === 'COMBO') { <span class="badge-neutro ml-1">Combo</span> }
-                  @if (!p.activo) { <span class="badge-danger ml-1">Desactivado</span> }
-                </p>
-                <p class="text-xs text-muted">{{ p.sku }}{{ p.codigoBarras ? ' · ' + p.codigoBarras : '' }}</p>
+                <div class="flex items-center gap-3">
+                  <app-imagen-producto [productoId]="p.id" [version]="p.imagenVersion" [tamano]="40" />
+                  <div class="min-w-0">
+                    <p class="font-medium">
+                      {{ p.nombre }}
+                      @if (p.tipo === 'COMBO') { <span class="badge-neutro ml-1">Combo</span> }
+                      @if (!p.activo) { <span class="badge-danger ml-1">Desactivado</span> }
+                    </p>
+                    <p class="text-xs text-muted">{{ p.sku }}{{ p.codigoBarras ? ' · ' + p.codigoBarras : '' }}</p>
+                  </div>
+                </div>
               </td>
               <td class="text-muted">{{ p.empresa ?? '—' }}</td>
               <td class="text-right font-medium tabular-nums">{{ p.precioVenta | dinero }}</td>

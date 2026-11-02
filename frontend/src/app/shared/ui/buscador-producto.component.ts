@@ -3,8 +3,10 @@ import { HttpErrorResponse } from '@angular/common/http';
 import { firstValueFrom } from 'rxjs';
 import { LoaderCircle, LucideAngularModule, ScanBarcode } from 'lucide-angular';
 import { CatalogoApi, ProductoResumen, TipoProducto } from '../../core/api/catalogo.api';
+import { LectorCodigosService } from '../../core/hardware/lector-codigos.service';
 import { ToastService } from '../../core/ui/toast.service';
 import { DineroPipe } from '../../shared/formato/dinero';
+import { ImagenProductoComponent } from './imagen-producto.component';
 
 /**
  * Buscador de productos (punto de venta, armado de combos, compras). Sirve para el lector de códigos (escribe el código y Enter)
@@ -12,7 +14,7 @@ import { DineroPipe } from '../../shared/formato/dinero';
  */
 @Component({
   selector: 'app-buscador-producto',
-  imports: [LucideAngularModule, DineroPipe],
+  imports: [LucideAngularModule, DineroPipe, ImagenProductoComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: { class: 'relative block' },
   template: `
@@ -39,6 +41,7 @@ import { DineroPipe } from '../../shared/formato/dinero';
               class="flex cursor-pointer items-center gap-3 px-3 py-2.5"
               [class]="i === activa() ? 'bg-ink-100 dark:bg-ink-800' : 'hover:bg-ink-50 dark:hover:bg-ink-800'"
               (mousedown)="$event.preventDefault(); elegir(p)">
+            <app-imagen-producto [productoId]="p.id" [version]="p.imagenVersion" [tamano]="40" />
             <div class="min-w-0 flex-1">
               <p class="truncate text-sm font-medium">
                 {{ p.nombre }}
@@ -66,9 +69,12 @@ export class BuscadorProductoComponent {
   /** Limita a un tipo (ej. solo SIMPLE para armar combos o cargar compras). */
   readonly tipo = input<TipoProducto | ''>('');
   readonly elegido = output<ProductoResumen>();
+  /** Enter con el campo vacío (en Vender, sirve para cobrar). */
+  readonly enterVacio = output<void>();
 
   private readonly api = inject(CatalogoApi);
   private readonly toast = inject(ToastService);
+  private readonly lector = inject(LectorCodigosService);
   private readonly campo = viewChild.required<ElementRef<HTMLInputElement>>('campo');
 
   protected readonly texto = signal('');
@@ -114,7 +120,15 @@ export class BuscadorProductoComponent {
     }
   }
 
+  /** Busca un código leído con el lector mientras el foco estaba en otra parte de la pantalla. */
+  buscarCodigo(codigo: string): void {
+    this.texto.set(codigo);
+    this.abierto.set(false);
+    void this.confirmar();
+  }
+
   protected teclas(e: KeyboardEvent): void {
+    this.lector.observarCampo(e);
     const total = this.sugerencias().length;
     if (e.key === 'ArrowDown' && this.abierto() && total) {
       e.preventDefault();
@@ -122,7 +136,8 @@ export class BuscadorProductoComponent {
     } else if (e.key === 'ArrowUp' && this.abierto() && total) {
       e.preventDefault();
       this.activa.set((this.activa() - 1 + total) % total);
-    } else if (e.key === 'Escape') {
+    } else if (e.key === 'Escape' && this.abierto()) {
+      e.preventDefault(); // Esc cierra la lista; no navega (ver el Esc global del shell)
       this.abierto.set(false);
     } else if (e.key === 'Enter') {
       e.preventDefault();
@@ -134,6 +149,7 @@ export class BuscadorProductoComponent {
   private async confirmar(): Promise<void> {
     const t = this.texto().trim();
     if (!t) {
+      this.enterVacio.emit();
       return;
     }
     clearTimeout(this.temporizador);

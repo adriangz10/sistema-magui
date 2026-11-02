@@ -295,7 +295,7 @@ func TestVentaSimultaneaContraBajaMySQL(t *testing.T) {
 func TestVentasConcurrentesDeProductosDistintosMySQL(t *testing.T) {
 	e := nuevoEntornoMySQL(t)
 	ctx := context.Background()
-	ven := ventas.NuevoModuloMySQL(e.conn, e.cat, e.inv, slog.New(slog.NewTextHandler(io.Discard, nil))).Servicio
+	ven := ventas.NuevoModuloMySQL(e.conn, e.cat, e.inv, nil, slog.New(slog.NewTextHandler(io.Discard, nil))).Servicio
 	// Lotes intercalados: A, B, A, B, A, B.
 	items := []comapp.ItemCmd{}
 	for range 3 {

@@ -46,7 +46,9 @@ export interface NuevaVenta {
 }
 
 export interface FiltroVentas {
+  /** Día (AAAA-MM-DD) o instante ISO (ej. la apertura de una caja). */
   desde?: FechaISO;
+  /** Día inclusivo (AAAA-MM-DD) o instante ISO exclusivo (ej. el cierre de una caja). */
   hasta?: FechaISO;
   estado?: EstadoVenta | '';
   metodo?: MetodoPago | '';

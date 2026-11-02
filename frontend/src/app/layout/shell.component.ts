@@ -9,11 +9,14 @@ import { ConexionService } from '../core/red/conexion.service';
 import { ConfirmacionService } from '../core/ui/confirmacion.service';
 import { TemaService } from '../core/ui/tema.service';
 import { MENU } from './navegacion';
+import { NegocioService } from '../core/negocio/negocio.service';
+import { LogoNegocioComponent } from '../shared/ui/logo-negocio.component';
 
 /** Estructura de la app con sesión: menú lateral (computadora) y barra inferior (celular). */
 @Component({
   selector: 'app-shell',
-  imports: [RouterOutlet, RouterLink, RouterLinkActive, LucideAngularModule],
+  host: { '(document:keydown)': 'teclas($event)' },
+  imports: [RouterOutlet, RouterLink, RouterLinkActive, LucideAngularModule, LogoNegocioComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <a href="#contenido" class="sr-only z-50 rounded-lg bg-ink-900 px-4 py-2 text-white focus:not-sr-only focus:fixed focus:top-2 focus:left-2">
@@ -24,11 +27,8 @@ import { MENU } from './navegacion';
       <!-- Menú lateral (pantallas grandes) -->
       <aside class="sticky top-0 hidden h-screen w-64 shrink-0 flex-col border-r border-ink-200 bg-white lg:flex dark:border-ink-800 dark:bg-ink-900">
         <div class="flex items-center gap-3 px-5 py-5">
-          <div class="flex size-9 items-center justify-center rounded-lg bg-ink-900 font-semibold text-white dark:bg-ink-100 dark:text-ink-900">M</div>
-          <div>
-            <p class="font-semibold leading-tight">Magui</p>
-            <p class="text-xs text-muted">Cosmética</p>
-          </div>
+          <app-logo-negocio />
+          <p class="min-w-0 truncate font-semibold leading-tight">{{ negocio.nombre() }}</p>
         </div>
         <nav class="flex-1 space-y-1 overflow-y-auto px-3" aria-label="Principal">
           @for (item of menu; track item.ruta) {
@@ -51,8 +51,8 @@ import { MENU } from './navegacion';
         <!-- Barra superior -->
         <header class="sticky top-0 z-30 flex h-14 items-center gap-3 border-b border-ink-200 bg-white px-4 lg:px-8 dark:border-ink-800 dark:bg-ink-900">
           <div class="flex items-center gap-2 lg:hidden">
-            <div class="flex size-8 items-center justify-center rounded-lg bg-ink-900 text-sm font-semibold text-white dark:bg-ink-100 dark:text-ink-900">M</div>
-            <span class="font-semibold">Magui</span>
+            <app-logo-negocio tamano="chico" />
+            <span class="max-w-[50vw] truncate font-semibold">{{ negocio.nombre() }}</span>
           </div>
           <div class="flex-1"></div>
           @if (escritorio.pendientes() > 0) {
@@ -144,6 +144,7 @@ import { MENU } from './navegacion';
   `,
 })
 export class ShellComponent {
+  protected readonly negocio = inject(NegocioService);
   protected readonly conexion = inject(ConexionService);
   protected readonly escritorio = inject(EscritorioService);
   protected readonly tema = inject(TemaService);
@@ -155,9 +156,31 @@ export class ShellComponent {
   protected readonly masAbierto = signal(false);
   protected readonly iconos = { salir: LogOut, luna: Moon, sol: Sun, enLinea: Wifi, sinConexion: WifiOff, mas: Ellipsis, cerrar: X, subir: CloudUpload, alerta: TriangleAlert };
 
+  private readonly router = inject(Router);
+
   constructor() {
-    inject(Router).events.pipe(filter((e) => e instanceof NavigationEnd), takeUntilDestroyed())
+    this.router.events.pipe(filter((e) => e instanceof NavigationEnd), takeUntilDestroyed())
       .subscribe(() => this.masAbierto.set(false));
+    void this.negocio.cargar(); // incluye la configuración del ticket
+  }
+
+  /**
+   * Esc desde cualquier pantalla lleva a Vender. Antes cierra lo que esté abierto: un diálogo (lo cierra el
+   * propio diálogo), el menú "Más" o las sugerencias del buscador (que marcan la tecla como usada).
+   * En Vender, Esc lo maneja la pantalla (vuelve el cursor al buscador).
+   */
+  protected teclas(e: KeyboardEvent): void {
+    if (e.key !== 'Escape' || e.defaultPrevented || e.ctrlKey || e.altKey || e.metaKey || document.querySelector('dialog[open]')) {
+      return;
+    }
+    if (this.masAbierto()) {
+      this.masAbierto.set(false);
+      return;
+    }
+    if (!this.router.url.startsWith('/vender')) {
+      e.preventDefault();
+      void this.router.navigateByUrl('/vender');
+    }
   }
 
   protected async salir(): Promise<void> {

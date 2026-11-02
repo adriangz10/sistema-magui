@@ -10,6 +10,8 @@ export interface ProductoResumen {
   id: string;
   sku: string;
   codigoBarras: string | null;
+  /** 0 = sin foto; si no, va en la URL de la foto para la caché (US-004). */
+  imagenVersion: number;
   nombre: string;
   tipo: TipoProducto;
   empresaId: string | null;
@@ -125,6 +127,21 @@ export class CatalogoApi {
 
   obtenerProducto(id: string): Observable<ProductoDetalle> {
     return this.http.get<ProductoDetalle>(`${this.base}/productos/${id}`);
+  }
+
+  /** Sube la foto ya achicada (ver reducirImagen). */
+  subirImagen(id: string, foto: Blob): Observable<{ imagenVersion: number }> {
+    return this.http.put<{ imagenVersion: number }>(`${this.base}/productos/${id}/imagen`, foto,
+      { headers: { 'Content-Type': foto.type || 'application/octet-stream' } });
+  }
+
+  quitarImagen(id: string): Observable<{ imagenVersion: number }> {
+    return this.http.delete<{ imagenVersion: number }>(`${this.base}/productos/${id}/imagen`);
+  }
+
+  /** Pública: las etiquetas <img> no mandan la sesión. */
+  urlImagen(id: string, version: number): string {
+    return `${this.base}/imagenes/productos/${id}?v=${version}`;
   }
 
   /** Búsqueda exacta por SKU o código de barras (lector). */

@@ -18,6 +18,7 @@ type Servicio struct {
 	repo       Repositorio
 	catalogo   Catalogo
 	inventario Inventario
+	caja       Caja
 	tx         tx.Transactor
 	ids        id.Generador
 	reloj      reloj.Reloj
@@ -27,13 +28,14 @@ type Dependencias struct {
 	Repo       Repositorio
 	Catalogo   Catalogo
 	Inventario Inventario
+	Caja       Caja // opcional
 	Tx         tx.Transactor
 	IDs        id.Generador
 	Reloj      reloj.Reloj
 }
 
 func NuevoServicio(d Dependencias) *Servicio {
-	return &Servicio{repo: d.Repo, catalogo: d.Catalogo, inventario: d.Inventario, tx: d.Tx, ids: d.IDs, reloj: d.Reloj}
+	return &Servicio{repo: d.Repo, catalogo: d.Catalogo, inventario: d.Inventario, caja: d.Caja, tx: d.Tx, ids: d.IDs, reloj: d.Reloj}
 }
 
 // RegistrarVenta cobra una venta: toma los precios actuales del catálogo, valida que los pagos
@@ -42,6 +44,11 @@ func NuevoServicio(d Dependencias) *Servicio {
 func (s *Servicio) RegistrarVenta(ctx context.Context, cmd ComandoVenta) (VentaDetalle, error) {
 	if cmd.Origen == "" {
 		cmd.Origen = domain.OrigenWeb
+	}
+	if s.caja != nil {
+		if err := s.caja.ExigirAbierta(ctx); err != nil {
+			return VentaDetalle{}, err
+		}
 	}
 	var ventaID string
 	err := s.tx.EnTransaccion(ctx, func(ctx context.Context) error {

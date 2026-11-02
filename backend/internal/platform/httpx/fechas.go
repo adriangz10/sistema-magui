@@ -9,26 +9,30 @@ import (
 	"magui/internal/kernel/reloj"
 )
 
-// RangoFechas lee ?desde=AAAA-MM-DD&hasta=AAAA-MM-DD como días de Argentina.
-// Devuelve el inicio de "desde" y el inicio del día siguiente a "hasta" (hasta inclusivo).
+// RangoFechas lee ?desde=&hasta= como días de Argentina (AAAA-MM-DD): devuelve el inicio de "desde"
+// y el inicio del día siguiente a "hasta" (hasta inclusivo).
+// También acepta instantes RFC 3339 (ej. el período de una caja): ahí "hasta" es exclusivo tal cual.
 func RangoFechas(r *http.Request) (desde, hasta *time.Time, err error) {
 	var v errores.Validacion
-	if s := r.URL.Query().Get("desde"); s != "" {
-		if f, e := fecha.Parse(s); e != nil {
-			v.Agregar("desde", "Use el formato AAAA-MM-DD")
-		} else {
+	leer := func(campo string, diaSiguiente bool) *time.Time {
+		s := r.URL.Query().Get(campo)
+		if s == "" {
+			return nil
+		}
+		if f, e := fecha.Parse(s); e == nil {
+			if diaSiguiente {
+				f = f.SumarDias(1)
+			}
 			t := f.InicioEn(reloj.ZonaArgentina)
-			desde = &t
+			return &t
 		}
-	}
-	if s := r.URL.Query().Get("hasta"); s != "" {
-		if f, e := fecha.Parse(s); e != nil {
-			v.Agregar("hasta", "Use el formato AAAA-MM-DD")
-		} else {
-			t := f.SumarDias(1).InicioEn(reloj.ZonaArgentina)
-			hasta = &t
+		if t, e := time.Parse(time.RFC3339Nano, s); e == nil {
+			return &t
 		}
+		v.Agregar(campo, "Use el formato AAAA-MM-DD o fecha y hora ISO")
+		return nil
 	}
+	desde, hasta = leer("desde", false), leer("hasta", true)
 	if desde != nil && hasta != nil && !desde.Before(*hasta) {
 		v.Agregar("hasta", "Debe ser igual o posterior a desde")
 	}

@@ -21,12 +21,13 @@ type Modulo struct {
 	Handler  *http.Handler
 }
 
-// NuevoModuloMySQL arma ventas para el servidor central.
-func NuevoModuloMySQL(conn *sql.DB, cat *catalogo.Servicio, inv *inventario.Servicio, log *slog.Logger) *Modulo {
+// NuevoModuloMySQL arma ventas para el servidor central. caja puede ser nil (no exige caja abierta).
+func NuevoModuloMySQL(conn *sql.DB, cat *catalogo.Servicio, inv *inventario.Servicio, caja application.Caja, log *slog.Logger) *Modulo {
 	svc := application.NuevoServicio(application.Dependencias{
 		Repo:       mysql.Repositorio{DB: conn},
 		Catalogo:   enlaces.Catalogo{Svc: cat},
 		Inventario: enlaces.Inventario{Svc: inv},
+		Caja:       caja,
 		Tx:         db.NuevoTransactorMySQL(conn),
 		IDs:        id.UUIDv7{},
 		Reloj:      reloj.Sistema{},

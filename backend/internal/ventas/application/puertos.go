@@ -60,6 +60,12 @@ type ParteSalida struct {
 	Costo    *dinero.Dinero
 }
 
+// Caja verifica que haya una caja abierta antes de cobrar (US-002, D-1).
+// Es opcional: sin Caja no se verifica (la app de escritorio cobra sin conexión).
+type Caja interface {
+	ExigirAbierta(ctx context.Context) error
+}
+
 // Inventario es el puerto hacia el inventario.
 type Inventario interface {
 	Descontar(ctx context.Context, s SalidaVenta) ([]ParteSalida, error)

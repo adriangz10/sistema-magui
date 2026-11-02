@@ -4,6 +4,15 @@
 //	POST /caja/gastos              {fecha?, monto, motivo, categoria?, metodo?}
 //	POST /caja/gastos/{id}/anular  {motivo}
 //	GET  /caja/categorias
+//
+// Apertura y cierre de caja (US-002):
+//
+//	GET   /caja/sesiones                 ?page=
+//	GET   /caja/sesiones/actual          caja abierta con arqueo en vivo, o null
+//	GET   /caja/sesiones/{id}            detalle + historial de ediciones
+//	POST  /caja/sesiones                 {montoInicial, notas?}
+//	POST  /caja/sesiones/{id}/cerrar     {version, contado: {EFECTIVO, TRANSFERENCIA, QR, TARJETA}, notas?}
+//	PATCH /caja/sesiones/{id}            {version, motivo, montoInicial, contado?, notas?}
 package http
 
 import (
@@ -20,12 +29,13 @@ import (
 )
 
 type Handler struct {
-	svc *application.Servicio
-	log *slog.Logger
+	svc      *application.Servicio
+	sesiones *application.ServicioSesiones
+	log      *slog.Logger
 }
 
-func NuevoHandler(svc *application.Servicio, log *slog.Logger) *Handler {
-	return &Handler{svc: svc, log: log}
+func NuevoHandler(svc *application.Servicio, sesiones *application.ServicioSesiones, log *slog.Logger) *Handler {
+	return &Handler{svc: svc, sesiones: sesiones, log: log}
 }
 
 func (h *Handler) Routes(r chi.Router) {
@@ -34,6 +44,12 @@ func (h *Handler) Routes(r chi.Router) {
 		r.Post("/gastos", h.registrar)
 		r.Post("/gastos/{id}/anular", h.anular)
 		r.Get("/categorias", h.categorias)
+		r.Get("/sesiones", h.listarSesiones)
+		r.Post("/sesiones", h.abrir)
+		r.Get("/sesiones/actual", h.actual)
+		r.Get("/sesiones/{id}", h.detalle)
+		r.Post("/sesiones/{id}/cerrar", h.cerrar)
+		r.Patch("/sesiones/{id}", h.editar)
 	})
 }
 

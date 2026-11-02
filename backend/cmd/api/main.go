@@ -18,6 +18,7 @@ import (
 	"magui/internal/compras"
 	"magui/internal/estadisticas"
 	"magui/internal/inventario"
+	"magui/internal/negocio"
 	"magui/internal/platform/config"
 	"magui/internal/platform/db"
 	"magui/internal/platform/httpserver"
@@ -98,7 +99,9 @@ func run() error {
 
 	cat := catalogo.NuevoModuloMySQL(conn, log)
 	inv := inventario.NuevoModuloMySQL(conn, cat.Servicio, log)
-	ven := ventas.NuevoModuloMySQL(conn, cat.Servicio, inv.Servicio, log)
+	cj := caja.NuevoModuloMySQL(conn, log)
+	// Sin caja abierta no se vende desde la web ni el celular (US-002).
+	ven := ventas.NuevoModuloMySQL(conn, cat.Servicio, inv.Servicio, cj.Sesiones, log)
 
 	var frontend http.Handler
 	if cfg.FrontendDir != "" {
@@ -123,7 +126,8 @@ func run() error {
 		compras.NuevoModuloMySQL(conn, cat.Servicio, inv.Servicio, log).Handler,
 		ven.Handler,
 		sincro.NuevoModulo(cat.Servicio, ven.Servicio, log).Handler,
-		caja.NuevoModuloMySQL(conn, log).Handler,
+		cj.Handler,
+		negocio.NuevoModuloMySQL(conn, log).Handler,
 		estadisticas.NuevoModuloMySQL(conn, log).Handler,
 	)
 

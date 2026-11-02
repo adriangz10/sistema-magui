@@ -246,8 +246,8 @@ Errores:
 
 | Método | Ruta | Detalle |
 |---|---|---|
-| POST | `/ventas` | Cobrar (ver abajo) |
-| GET | `/ventas` | Paginado, la más reciente primero. Filtros: `desde`, `hasta`, `estado` (CONFIRMADA/ANULADA), `metodo` |
+| POST | `/ventas` | Cobrar (ver abajo). Sin caja abierta responde 409 `caja_cerrada` (US-002) |
+| GET | `/ventas` | Paginado, la más reciente primero. Filtros: `desde`, `hasta`, `estado` (CONFIRMADA/ANULADA), `metodo`. `desde`/`hasta` aceptan día (`AAAA-MM-DD`, hasta inclusivo) o fecha y hora ISO (hasta exclusivo, ej. el período de una caja) |
 | GET | `/ventas/{id}` | Detalle: renglones, pagos, costo, ganancia y vuelto |
 | POST | `/ventas/{id}/anular` | `{motivo}` — devuelve el stock a los lotes de donde salió |
 
@@ -337,6 +337,45 @@ Los gastos no se borran: se anulan.
 | POST | `/caja/gastos` | `{fecha?, monto, motivo, categoria?, metodo?}` (método por defecto EFECTIVO) |
 | POST | `/caja/gastos/{id}/anular` | `{motivo}` |
 | GET | `/caja/categorias` | Sugeridas + las ya usadas |
+
+## Caja (apertura, cierre y conciliación — US-002)
+
+Hay como máximo una caja abierta. Sin caja abierta no se cobra desde la web ni el celular (la app de escritorio
+sin conexión no lo verifica). Ventas de una caja = las hechas entre la apertura (inclusive) y el cierre (exclusive).
+
+| Método | Ruta | Descripción |
+|---|---|---|
+| GET | `/caja/sesiones` | Historial paginado, la más reciente primero |
+| GET | `/caja/sesiones/actual` | Caja abierta con el arqueo en vivo, o `null` |
+| GET | `/caja/sesiones/{id}` | Detalle + `ediciones` (más reciente primero) |
+| POST | `/caja/sesiones` | Abrir: `{montoInicial, notas?}`. 409 `caja_ya_abierta` si ya hay una |
+| POST | `/caja/sesiones/{id}/cerrar` | `{version, contado: {EFECTIVO, TRANSFERENCIA, QR, TARJETA}, notas?}` (los cuatro obligatorios, ≥ 0) |
+| PATCH | `/caja/sesiones/{id}` | Editar: `{version, motivo, montoInicial, contado?, notas?}`. `contado` solo si está cerrada. 409 `version_desactualizada` |
+
+Arqueo por medio: `esperado` = ventas confirmadas − gastos no anulados con ese medio (en efectivo, + `montoInicial`);
+`diferencia` = `contado` − `esperado` (positiva sobra, negativa falta). Al editar una caja cerrada se recalcula el
+esperado con los datos actuales y cada cambio queda en `ediciones[].cambios` (`{campo, antes, despues}`).
+
+## Fotos de productos (US-004)
+
+| Método | Ruta | Descripción |
+|---|---|---|
+| PUT | `/productos/{id}/imagen` | Cuerpo = la foto (PNG, JPG o WEBP, ≤ 1 MB; se valida por contenido) → `{imagenVersion}`. 422 `imagen_tipo` / `imagen_muy_grande` |
+| DELETE | `/productos/{id}/imagen` | Quita la foto → `{imagenVersion: 0}` |
+| GET | `/imagenes/productos/{id}` | **Sin sesión.** La foto. Con `?v=imagenVersion` se guarda en caché (la versión nunca se repite). 404 `sin_imagen` |
+
+Los productos (listado y detalle) incluyen `imagenVersion` (0 = sin foto).
+
+## Negocio (nombre, logo y ticket — US-003)
+
+| Método | Ruta | Descripción |
+|---|---|---|
+| GET | `/negocio/marca` | **Sin sesión.** `{nombre, tieneLogo, logoVersion}` |
+| GET | `/negocio/logo` | **Sin sesión.** La imagen. Con `?v=logoVersion` se guarda en caché (cambia con cada logo) |
+| GET | `/negocio` | Marca + `ticket: {habilitado, imprimirAlCobrar, anchoPapel (58/80), mostrarLogo, datos, pie}` |
+| PUT | `/negocio` | `{nombre, ticket}`. `datos` ≤ 300 y `pie` ≤ 200 caracteres, máximo 6 líneas cada uno |
+| PUT | `/negocio/logo` | Cuerpo = la imagen (PNG, JPG o WEBP, ≤ 512 KB; se valida por contenido). 422 `logo_tipo` / `logo_muy_grande` |
+| DELETE | `/negocio/logo` | Quita el logo |
 
 ## Estadísticas
 

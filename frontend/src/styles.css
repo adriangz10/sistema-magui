@@ -152,3 +152,15 @@ body {
 
   .titulo-pagina { @apply text-xl font-semibold tracking-tight lg:text-2xl; }
 }
+
+/* Ticket de venta (US-003): oculto en pantalla; al imprimir, la hoja muestra solo el ticket. */
+.ticket-impresion { display: none; }
+@page ticket { margin: 0; }
+@media print {
+  html.imprimiendo-ticket, html.imprimiendo-ticket body { background: #fff !important; }
+  html.imprimiendo-ticket app-root > :not(app-ticket-impresion) { display: none !important; }
+  html.imprimiendo-ticket .ticket-impresion { display: block; page: ticket; }
+}
+
+/* Teclas de atajo (Vender) */
+kbd { border: 1px solid currentColor; border-radius: 0.25rem; padding: 0 0.25rem; font: inherit; font-size: 0.7rem; opacity: 0.8; }

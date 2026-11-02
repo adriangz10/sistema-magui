@@ -29,7 +29,7 @@ func TestVentasSobreCompraEditadaMySQL(t *testing.T) {
 	cat := catalogo.NuevoModuloMySQL(conn, log).Servicio
 	inv := inventario.NuevoModuloMySQL(conn, cat, log).Servicio
 	com := compras.NuevoModuloMySQL(conn, cat, inv, log).Servicio
-	ven := ventas.NuevoModuloMySQL(conn, cat, inv, log).Servicio
+	ven := ventas.NuevoModuloMySQL(conn, cat, inv, nil, log).Servicio
 	hoy := fecha.DelInstante(time.Now(), reloj.ZonaArgentina)
 
 	kaiak := debe(cat.CrearProducto(ctx, catapp.ComandoProducto{Tipo: catdomain.TipoSimple,

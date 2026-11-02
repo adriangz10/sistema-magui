@@ -62,6 +62,8 @@ type ProductoResumen struct {
 	StockMinimo int  `json:"stockMinimo"`
 	Activo      bool `json:"activo"`
 	Version     int  `json:"version"`
+	// ImagenVersion: 0 = sin foto; si no, va en la URL de la foto (?v=) para la caché (US-004).
+	ImagenVersion int `json:"imagenVersion"`
 }
 
 // ComboItemDTO es un componente de combo con sus datos.

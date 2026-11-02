@@ -87,7 +87,7 @@ func TestVentasMySQL(t *testing.T) {
 	invM := inventario.NuevoModuloMySQL(conn, catM.Servicio, log)
 	cat, inv := catM.Servicio, invM.Servicio
 	com := compras.NuevoModuloMySQL(conn, cat, inv, log).Servicio
-	ven := ventas.NuevoModuloMySQL(conn, cat, inv, log).Servicio
+	ven := ventas.NuevoModuloMySQL(conn, cat, inv, nil, log).Servicio
 	pag := paginacion.Nueva(1, 10)
 	hoy := fecha.DelInstante(time.Now(), reloj.ZonaArgentina)
 

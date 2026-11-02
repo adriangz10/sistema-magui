@@ -24,6 +24,7 @@ func NuevoModuloMySQL(conn *sql.DB, log *slog.Logger) *Modulo {
 		Empresas:   mysql.Empresas{DB: conn},
 		Categorias: mysql.Categorias{DB: conn},
 		Productos:  mysql.Productos{DB: conn},
+		Imagenes:   mysql.Imagenes{DB: conn},
 		Tx:         db.NuevoTransactorMySQL(conn),
 		IDs:        id.UUIDv7{},
 		Reloj:      reloj.Sistema{},

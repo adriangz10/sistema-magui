@@ -16,6 +16,12 @@
 //	PUT    /productos/{id}
 //	PATCH  /productos/{id}/estado             {activo}
 //	GET    /productos/{id}/precios            historial de precios
+//	PUT    /productos/{id}/imagen             cuerpo = la foto (PNG, JPG o WEBP, máximo 1 MB) → {imagenVersion}
+//	DELETE /productos/{id}/imagen
+//
+// Pública (las etiquetas <img> no mandan la sesión; los IDs no se pueden adivinar):
+//
+//	GET    /imagenes/productos/{id}           la foto (?v=imagenVersion para la caché)
 package http
 
 import (
@@ -64,6 +70,8 @@ func (h *Handler) Routes(r chi.Router) {
 		r.Put("/{id}", h.actualizarProducto)
 		r.Patch("/{id}/estado", h.cambiarEstado)
 		r.Get("/{id}/precios", h.historialPrecios)
+		r.Put("/{id}/imagen", h.subirImagen)
+		r.Delete("/{id}/imagen", h.quitarImagen)
 	})
 }
 

@@ -4,18 +4,20 @@ import { Router } from '@angular/router';
 import { Eye, EyeOff, LoaderCircle, LucideAngularModule } from 'lucide-angular';
 import { ApiError } from '../../core/api/api-error';
 import { AuthService } from '../../core/auth/auth.service';
+import { NegocioService } from '../../core/negocio/negocio.service';
+import { LogoNegocioComponent } from '../../shared/ui/logo-negocio.component';
 
 /** Pantalla de ingreso con la contraseña de la dueña. */
 @Component({
   selector: 'app-ingresar',
-  imports: [ReactiveFormsModule, LucideAngularModule],
+  imports: [ReactiveFormsModule, LucideAngularModule, LogoNegocioComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <main class="flex min-h-full items-center justify-center bg-ink-50 p-4 dark:bg-ink-950">
       <div class="w-full max-w-sm">
         <div class="mb-8 text-center">
-          <div class="mx-auto flex size-12 items-center justify-center rounded-xl bg-ink-900 text-xl font-semibold text-white dark:bg-ink-100 dark:text-ink-900">M</div>
-          <h1 class="mt-4 text-2xl font-semibold tracking-tight">Sistema Magui</h1>
+          <app-logo-negocio tamano="grande" />
+          <h1 class="mt-4 text-2xl font-semibold tracking-tight">{{ negocio.nombre() }}</h1>
           <p class="mt-1 text-sm text-muted">Ingresá para continuar</p>
         </div>
 
@@ -50,6 +52,7 @@ export class IngresarPage {
   /** Ruta a la que volver después de ingresar (?volver=). */
   readonly volver = input<string>();
 
+  protected readonly negocio = inject(NegocioService);
   private readonly auth = inject(AuthService);
   private readonly router = inject(Router);
 

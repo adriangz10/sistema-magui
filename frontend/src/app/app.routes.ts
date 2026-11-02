@@ -13,7 +13,8 @@ export const routes: Routes = [
     canMatch: [sesionGuard],
     loadComponent: () => import('./layout/shell.component').then((m) => m.ShellComponent),
     children: [
-      { path: '', pathMatch: 'full', redirectTo: 'inicio' },
+      // El sistema arranca listo para vender.
+      { path: '', pathMatch: 'full', redirectTo: 'vender' },
       { path: 'inicio', title: 'Inicio', loadComponent: () => import('./features/inicio/inicio.page').then((m) => m.InicioPage) },
       { path: 'vender', title: 'Vender', loadComponent: () => import('./features/vender/vender.page').then((m) => m.VenderPage) },
       { path: 'productos', title: 'Productos', loadComponent: () => import('./features/productos/productos.page').then((m) => m.ProductosPage) },

@@ -77,7 +77,7 @@ func TestEstadisticasMySQL(t *testing.T) {
 	cat := catalogo.NuevoModuloMySQL(conn, log).Servicio
 	inv := inventario.NuevoModuloMySQL(conn, cat, log).Servicio
 	com := compras.NuevoModuloMySQL(conn, cat, inv, log).Servicio
-	ven := ventas.NuevoModuloMySQL(conn, cat, inv, log).Servicio
+	ven := ventas.NuevoModuloMySQL(conn, cat, inv, nil, log).Servicio
 	cj := caja.NuevoModuloMySQL(conn, log).Servicio
 	est := estadisticas.NuevoModuloMySQL(conn, log).Servicio
 

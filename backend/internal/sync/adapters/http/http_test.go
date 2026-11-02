@@ -92,7 +92,7 @@ func TestSincronizacionMySQL(t *testing.T) {
 	cat := catalogo.NuevoModuloMySQL(conn, log).Servicio
 	inv := inventario.NuevoModuloMySQL(conn, cat, log).Servicio
 	com := compras.NuevoModuloMySQL(conn, cat, inv, log).Servicio
-	ven := ventas.NuevoModuloMySQL(conn, cat, inv, log).Servicio
+	ven := ventas.NuevoModuloMySQL(conn, cat, inv, nil, log).Servicio
 	r := chi.NewRouter()
 	sincro.NuevoModulo(cat, ven, log).Handler.Routes(r)
 

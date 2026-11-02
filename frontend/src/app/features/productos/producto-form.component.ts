@@ -11,6 +11,8 @@ import { aCentavos, DineroPipe, deCentavos } from '../../shared/formato/dinero';
 import { BuscadorProductoComponent } from '../../shared/ui/buscador-producto.component';
 import { CampoComponent } from '../../shared/ui/campo.component';
 import { InputDineroComponent } from '../../shared/ui/input-dinero.component';
+import { ImagenReducida, reducirImagen } from '../../shared/imagen/reducir-imagen';
+import { ImagenProductoComponent } from '../../shared/ui/imagen-producto.component';
 
 interface Componente {
   productoId: string;
@@ -23,10 +25,32 @@ interface Componente {
 /** Alta y edición de productos simples y combos. */
 @Component({
   selector: 'app-producto-form',
-  imports: [ReactiveFormsModule, LucideAngularModule, DineroPipe, BuscadorProductoComponent, CampoComponent, InputDineroComponent],
+  imports: [ReactiveFormsModule, LucideAngularModule, DineroPipe, BuscadorProductoComponent, CampoComponent, InputDineroComponent,
+    ImagenProductoComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <form [formGroup]="form" (ngSubmit)="guardar()" novalidate class="space-y-5" id="form-producto">
+      <div class="flex items-center gap-4">
+        <app-imagen-producto [productoId]="producto()?.id ?? 'nuevo'" [version]="quitarFoto() ? 0 : (producto()?.imagenVersion ?? 0)"
+                             [vistaPrevia]="foto()?.vistaPrevia ?? null" [tamano]="96" />
+        <div class="min-w-0">
+          <p class="etiqueta">Foto <span class="font-normal text-muted">(opcional)</span></p>
+          <div class="flex flex-wrap gap-2">
+            <label for="p-foto" class="btn-secundario cursor-pointer" [class.opacity-60]="procesandoFoto()">
+              {{ procesandoFoto() ? 'Preparando…' : tieneFoto() ? 'Cambiar foto' : 'Agregar foto' }}
+            </label>
+            <input id="p-foto" type="file" accept="image/*" class="sr-only" aria-describedby="p-foto-ayuda"
+                   (change)="elegirFoto($event)" [disabled]="procesandoFoto()" />
+            @if (tieneFoto()) {
+              <button type="button" class="btn-fantasma" (click)="sacarFoto()">Quitar</button>
+            }
+          </div>
+          <p id="p-foto-ayuda" class="mt-1 text-xs" [class]="errorFoto() ? 'text-danger' : 'text-muted'" [attr.role]="errorFoto() ? 'alert' : null">
+            {{ errorFoto() || 'Desde la computadora o la cámara del celular. Se achica sola antes de subirla.' }}
+          </p>
+        </div>
+      </div>
+
       <div class="grid gap-4 sm:grid-cols-2">
         <app-campo class="sm:col-span-2" etiqueta="Nombre" para="p-nombre" [error]="error('nombre')">
           <input id="p-nombre" class="input" formControlName="nombre" maxlength="255" autocomplete="off"
@@ -164,6 +188,12 @@ export class ProductoFormComponent implements OnInit {
   protected readonly componentes = signal<Componente[]>([]);
   protected readonly errores = signal<Record<string, string>>({});
   protected readonly guardando = signal(false);
+  /** Foto nueva elegida (se sube al guardar) o pedido de quitar la actual (US-004). */
+  protected readonly foto = signal<ImagenReducida | null>(null);
+  protected readonly quitarFoto = signal(false);
+  protected readonly procesandoFoto = signal(false);
+  protected readonly errorFoto = signal('');
+  protected readonly tieneFoto = computed(() => !!this.foto() || (!this.quitarFoto() && (this.producto()?.imagenVersion ?? 0) > 0));
 
   protected readonly precioSeparado = computed(() =>
     deCentavos(this.componentes().reduce((t, c) => t + aCentavos(c.precio) * c.cantidad, 0)));
@@ -234,6 +264,53 @@ export class ProductoFormComponent implements OnInit {
     this.componentes.update((cs) => cs.filter((x) => x.productoId !== c.productoId));
   }
 
+  protected async elegirFoto(e: Event): Promise<void> {
+    const campo = e.target as HTMLInputElement;
+    const archivo = campo.files?.[0];
+    campo.value = ''; // permite volver a elegir el mismo archivo
+    if (!archivo) {
+      return;
+    }
+    if (!archivo.type.startsWith('image/')) {
+      this.errorFoto.set('Elegí una imagen');
+      return;
+    }
+    this.errorFoto.set('');
+    this.procesandoFoto.set(true);
+    try {
+      this.foto.set(await reducirImagen(archivo));
+      this.quitarFoto.set(false);
+    } catch (err) {
+      this.errorFoto.set(err instanceof Error ? err.message : 'No se pudo leer la imagen');
+    } finally {
+      this.procesandoFoto.set(false);
+    }
+  }
+
+  protected sacarFoto(): void {
+    this.foto.set(null);
+    this.quitarFoto.set(true);
+    this.errorFoto.set('');
+  }
+
+  /** Sube o quita la foto después de guardar el producto (un producto nuevo recién ahí tiene ID). */
+  private async guardarFoto(p: ProductoDetalle): Promise<ProductoDetalle> {
+    try {
+      const nueva = this.foto();
+      if (nueva) {
+        const r = await firstValueFrom(this.api.subirImagen(p.id, nueva.blob));
+        return { ...p, imagenVersion: r.imagenVersion };
+      }
+      if (this.quitarFoto() && p.imagenVersion > 0) {
+        await firstValueFrom(this.api.quitarImagen(p.id));
+        return { ...p, imagenVersion: 0 };
+      }
+    } catch (e) {
+      this.toast.error(`El producto se guardó, pero la foto no: ${ApiError.desde(e).message}`);
+    }
+    return p;
+  }
+
   protected async guardar(): Promise<void> {
     const v = this.form.getRawValue();
     const locales: Record<string, string> = {};
@@ -263,7 +340,7 @@ export class ProductoFormComponent implements OnInit {
       const res = actual
         ? await firstValueFrom(this.api.actualizarProducto(actual.id, { ...datos, version: actual.version }))
         : await firstValueFrom(this.api.crearProducto(datos));
-      this.guardado.emit(res);
+      this.guardado.emit(await this.guardarFoto(res));
     } catch (e) {
       const err = ApiError.desde(e);
       const campo = { sku_duplicado: 'sku', codigo_barras_duplicado: 'codigoBarras', combo_invalido: 'items' }[err.codigo];

@@ -2,8 +2,9 @@ import { ChangeDetectionStrategy, Component, inject, input, output } from '@angu
 import { FormsModule } from '@angular/forms';
 import { Banknote, CreditCard, Landmark, LoaderCircle, LucideAngularModule, QrCode, Trash2 } from 'lucide-angular';
 import { METODOS, MetodoPago } from '../../core/api/ventas.api';
-import { DineroPipe, deCentavos } from '../../shared/formato/dinero';
+import { DineroPipe, deCentavos, formatearDinero } from '../../shared/formato/dinero';
 import { InputDineroComponent } from '../../shared/ui/input-dinero.component';
+import { teclaDe } from './atajos';
 import { CarritoService } from './carrito.service';
 
 /** Billetes argentinos más usados, para sumar rápido el efectivo recibido. */
@@ -23,8 +24,12 @@ const BILLETES = [1000, 2000, 10000, 20000];
       <h3 class="mt-5 mb-2 text-sm font-medium">Forma de pago</h3>
       <div class="grid grid-cols-2 gap-2">
         @for (m of metodos; track m.valor) {
-          <button type="button" class="btn-secundario justify-start" [disabled]="carrito.vacio()" (click)="agregar(m.valor)">
-            <lucide-icon [img]="iconos[m.valor]" [size]="18" aria-hidden="true" /> {{ m.etiqueta }}
+          <!-- Ícono a la izquierda; nombre arriba y tecla abajo: el nombre usa todo el ancho y los cuatro quedan iguales. -->
+          <button type="button" class="btn-secundario grid min-h-12 grid-cols-[1.125rem_minmax(0,1fr)] items-center gap-x-2.5 gap-y-0.5 px-3 py-1.5 text-left"
+                  [disabled]="carrito.vacio()" (click)="agregar(m.valor)" [attr.aria-keyshortcuts]="tecla(m.valor)">
+            <lucide-icon [img]="iconos[m.valor]" [size]="18" class="row-span-2" aria-hidden="true" />
+            <span class="truncate leading-tight">{{ m.etiqueta }}</span>
+            <kbd class="justify-self-start leading-tight font-normal text-muted">{{ tecla(m.valor) }}</kbd>
           </button>
         }
       </div>
@@ -47,7 +52,8 @@ const BILLETES = [1000, 2000, 10000, 20000];
                   </button>
                 </div>
               </div>
-              <app-input-dinero [idCampo]="'pago-' + i" [ngModel]="p.monto" (ngModelChange)="carrito.cambiarMonto(i, $event)" />
+              <app-input-dinero [idCampo]="'pago-' + i" [ngModel]="p.monto" (ngModelChange)="carrito.cambiarMonto(i, $event)"
+                                (keydown.enter)="enterEnMonto($event)" />
               @if (p.metodo === 'EFECTIVO') {
                 <div class="mt-2 flex flex-wrap gap-1">
                   @for (b of billetes; track b) {
@@ -80,7 +86,7 @@ const BILLETES = [1000, 2000, 10000, 20000];
 
       <button type="button" class="btn-primario mt-5 h-12 w-full text-base" [disabled]="!carrito.cobro().listo || cobrando()" (click)="cobrar.emit()">
         @if (cobrando()) { <lucide-icon [img]="iconos.cargando" [size]="18" class="animate-spin" aria-hidden="true" /> }
-        Cobrar {{ total() | dinero }} <span class="text-xs font-normal opacity-75">(F9)</span>
+        Cobrar {{ total() | dinero }} <span class="text-xs font-normal opacity-75">(Enter)</span>
       </button>
     </section>
   `,
@@ -88,6 +94,8 @@ const BILLETES = [1000, 2000, 10000, 20000];
 export class PanelCobroComponent {
   readonly cobrando = input(false);
   readonly cobrar = output<void>();
+  /** Enter sin poder cobrar todavía: por qué. */
+  readonly aviso = output<string>();
 
   protected readonly carrito = inject(CarritoService);
   protected readonly metodos = METODOS;
@@ -105,8 +113,31 @@ export class PanelCobroComponent {
     return METODOS.find((x) => x.valor === m)?.etiqueta ?? m;
   }
 
-  protected agregar(m: MetodoPago): void {
+  protected tecla = teclaDe;
+
+  /**
+   * Elige una forma de pago y pone el cursor en su monto (seleccionado): en efectivo se escribe lo que
+   * entrega el cliente y se ve el vuelto; después, Enter cobra.
+   */
+  agregar(m: MetodoPago): void {
+    if (this.carrito.vacio()) {
+      return;
+    }
     const i = this.carrito.agregarPago(m);
-    setTimeout(() => (document.getElementById('pago-' + i) as HTMLInputElement | null)?.focus());
+    setTimeout(() => {
+      const campo = document.getElementById('pago-' + i) as HTMLInputElement | null;
+      campo?.focus();
+      campo?.select();
+    });
+  }
+
+  /** Enter en un monto: cobra si ya está todo; si no, avisa qué falta y deja el cursor ahí. */
+  protected enterEnMonto(e: Event): void {
+    e.preventDefault();
+    if (this.carrito.cobro().listo && !this.cobrando()) {
+      this.cobrar.emit();
+    } else if (!this.cobrando()) {
+      this.aviso.emit(this.carrito.cobro().problema ?? `Falta cobrar ${formatearDinero(this.falta())}`);
+    }
   }
 }
